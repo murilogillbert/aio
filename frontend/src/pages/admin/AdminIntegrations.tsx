@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { AlertTriangle, Check, ChevronDown, Copy, Eye, EyeOff, Loader2, Mail, MessageCircle, CreditCard, Cloud, Send, Instagram } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, Check, ChevronDown, Copy, Eye, EyeOff, Mail, MessageCircle, CreditCard, Cloud, Send, Instagram } from "lucide-react";
 import { Badge, Button, Card, Input, Skeleton } from "../../components/ui";
 import { PageHeader } from "../../components/Page";
 import { useToast } from "../../context/ToastContext";

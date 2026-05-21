@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Activity, AlertTriangle, Award, BarChart3, CheckCircle, ChevronDown, DollarSign, Minus, TrendingDown, TrendingUp, Users, XCircle } from "lucide-react";
-import { Badge, Button, Card, Select, Skeleton } from "../../components/ui";
+import { Activity, AlertTriangle, Award, CheckCircle, Minus, TrendingDown, TrendingUp, XCircle } from "lucide-react";
+import { Badge, Card, Select, Skeleton } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { currency } from "../../utils";
 import {

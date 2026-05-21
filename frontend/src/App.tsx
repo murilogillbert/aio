@@ -42,6 +42,11 @@ import {
   ProfessionalMetrics,
 } from "./pages/professional/ProfessionalPages";
 import {
+  ProfessionalMedicalRecordPage,
+  ReceptionMedicalRecordPage,
+  SessionNoteEditorPage,
+} from "./pages/shared/MedicalRecordPages";
+import {
   ReceptionAgenda,
   ReceptionDashboard,
   ReceptionMessages,
@@ -158,6 +163,8 @@ export default function App() {
           <Route path="/profissional/agenda" element={<ProfessionalAgenda />} />
           <Route path="/profissional/metricas" element={<ProfessionalMetrics />} />
           <Route path="/profissional/mensagens" element={<ProfessionalMessages />} />
+          <Route path="/profissional/pacientes/:patientId/prontuario" element={<ProfessionalMedicalRecordPage />} />
+          <Route path="/profissional/agendamentos/:appointmentId/evolucao" element={<SessionNoteEditorPage />} />
         </Route>
       </Route>
 
@@ -166,6 +173,7 @@ export default function App() {
           <Route path="/recepcao" element={<ReceptionDashboard />} />
           <Route path="/recepcao/agenda" element={<ReceptionAgenda />} />
           <Route path="/recepcao/pacientes" element={<ReceptionPatients />} />
+          <Route path="/recepcao/pacientes/:patientId/prontuario" element={<ReceptionMedicalRecordPage />} />
           <Route path="/recepcao/mensagens" element={<ReceptionMessages />} />
           <Route path="/recepcao/servicos" element={<ReceptionServices />} />
           <Route path="/recepcao/profissionais" element={<ReceptionProfessionals />} />

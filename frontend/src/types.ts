@@ -488,3 +488,85 @@ export type PatientCreateResult = { patient: PatientRich; generatedPassword: str
 
 export type Block = { id: string; professionalId: string; startAt: string; endAt: string; reason: string };
 export type BlockUpsert = { professionalId: string; startAt: string; endAt: string; reason: string };
+
+export type MedicalRecord = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  bloodType: string | null;
+  allergies: string | null;
+  chronicConditions: string | null;
+  currentMedications: string | null;
+  familyHistory: string | null;
+  surgicalHistory: string | null;
+  habits: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+  isRestrictedView: boolean;
+};
+
+export type MedicalRecordUpsert = {
+  bloodType?: string | null;
+  allergies?: string | null;
+  chronicConditions?: string | null;
+  currentMedications?: string | null;
+  familyHistory?: string | null;
+  surgicalHistory?: string | null;
+  habits?: string | null;
+  heightCm?: number | null;
+  weightKg?: number | null;
+};
+
+export type SessionNote = {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  professionalId: string;
+  professionalName: string;
+  serviceName: string;
+  appointmentStartTime: string;
+  appointmentStatus: string;
+  chiefComplaint: string | null;
+  subjective: string | null;
+  objective: string | null;
+  assessment: string | null;
+  plan: string | null;
+  diagnosis: string | null;
+  diagnosisCode: string | null;
+  prescription: string | null;
+  vitalSignsJson: string | null;
+  isSigned: boolean;
+  signedAt: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  isRestrictedView: boolean;
+};
+
+export type SessionNoteUpsert = {
+  chiefComplaint?: string | null;
+  subjective?: string | null;
+  objective?: string | null;
+  assessment?: string | null;
+  plan?: string | null;
+  diagnosis?: string | null;
+  diagnosisCode?: string | null;
+  prescription?: string | null;
+  vitalSignsJson?: string | null;
+};
+
+export type MedicalAttachment = {
+  id: string;
+  patientId: string;
+  title: string;
+  fileUrl: string;
+  fileType: string;
+  createdAt: string;
+};
+
+export type MedicalAttachmentUpsert = {
+  title: string;
+  fileUrl: string;
+  fileType: string;
+};

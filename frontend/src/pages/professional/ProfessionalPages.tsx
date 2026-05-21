@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Badge, Card, Skeleton } from "../../components/ui";
 import { MiniBarChart, PageHeader, StatCard, StatGrid } from "../../components/Page";
-import { getAgenda, getMetricBreakdowns, getMetricasGerais } from "../../services/api";
-import type { AgendaSlot, MetricsPoint } from "../../types";
 import { currency, dateLabel } from "../../utils";
+import { useAgendaSlots } from "../../hooks/useAgenda";
+import { useMetricBreakdowns, useMetricSeries } from "../../hooks/useMetrics";
 
 const todayItems = [
   { time: "09:00", patient: "Marina Pires", service: "Avaliacao Facial Integrada", status: "confirmado" },
@@ -12,14 +12,8 @@ const todayItems = [
 ];
 
 export function ProfessionalDashboard() {
-  const [metrics, setMetrics] = useState<MetricsPoint[]>([]);
-  const [slots, setSlots] = useState<AgendaSlot[]>([]);
-
-  useEffect(() => {
-    getMetricasGerais().then(setMetrics).catch(() => setMetrics([]));
-    getAgenda().then(setSlots).catch(() => setSlots([]));
-  }, []);
-
+  const { metrics } = useMetricSeries();
+  const { slots } = useAgendaSlots();
   const latest = metrics.at(-1);
   const today = new Date().toISOString().slice(0, 10);
   const todaySlots = slots.filter((slot) => slot.date === today);
@@ -58,13 +52,7 @@ function ScheduleList() {
 }
 
 export function ProfessionalAgenda() {
-  const [slots, setSlots] = useState<AgendaSlot[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getAgenda().then(setSlots).catch(() => setSlots([])).finally(() => setLoading(false));
-  }, []);
-
+  const { slots, loading } = useAgendaSlots();
   const days = Array.from(new Set(slots.slice(0, 60).map((slot) => slot.date))).slice(0, 5);
 
   return (
@@ -79,9 +67,12 @@ export function ProfessionalAgenda() {
               <h2 className="font-bold">{dateLabel(day)}</h2>
               <div className="mt-3 grid gap-2">
                 {slots.filter((slot) => slot.date === day).slice(0, 6).map((slot) => (
-                  <p key={slot.id} className="rounded-lg bg-bg-secondary px-3 py-2 text-sm">
-                    {slot.time} - {slot.available ? "Disponivel" : "Agendado"}
-                  </p>
+                  <div key={slot.id} className="flex items-center justify-between gap-2 rounded-lg bg-bg-secondary px-3 py-2 text-sm">
+                    <span>{slot.time} - {slot.available ? "Disponivel" : "Agendado"}</span>
+                    {!slot.available && slot.appointmentId ? (
+                      <Link className="text-xs font-bold text-primary" to={`/profissional/agendamentos/${slot.appointmentId}/evolucao`}>Evolucao</Link>
+                    ) : null}
+                  </div>
                 ))}
               </div>
             </Card>
@@ -93,14 +84,8 @@ export function ProfessionalAgenda() {
 }
 
 export function ProfessionalMetrics() {
-  const [metrics, setMetrics] = useState<MetricsPoint[]>([]);
-  const [ranking, setRanking] = useState<{ label: string; value: number }[]>([]);
-
-  useEffect(() => {
-    getMetricasGerais().then(setMetrics).catch(() => setMetrics([]));
-    getMetricBreakdowns().then((data) => setRanking(data.serviceRankingMock)).catch(() => setRanking([]));
-  }, []);
-
+  const { metrics } = useMetricSeries();
+  const { serviceRanking } = useMetricBreakdowns();
   const current = metrics.at(-1);
 
   return (
@@ -114,7 +99,7 @@ export function ProfessionalMetrics() {
       </StatGrid>
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card><h2 className="mb-4 font-bold">Evolucao mensal</h2><MiniBarChart data={metrics.map((item) => ({ label: item.month, value: item.revenue }))} /></Card>
-        <Card><h2 className="mb-4 font-bold">Distribuicao de servicos</h2><MiniBarChart data={ranking} /></Card>
+        <Card><h2 className="mb-4 font-bold">Distribuicao de servicos</h2><MiniBarChart data={serviceRanking} /></Card>
       </div>
     </>
   );

@@ -16,6 +16,10 @@ import type {
   MetricsFaturamento,
   MetricsMovimento,
   MetricsPoint,
+  MedicalAttachment,
+  MedicalAttachmentUpsert,
+  MedicalRecord,
+  MedicalRecordUpsert,
   PatientCreateResult,
   PatientRich,
   PatientUpsert,
@@ -27,6 +31,8 @@ import type {
   ServiceMetric,
   ServiceReferences,
   ServiceSummary,
+  SessionNote,
+  SessionNoteUpsert,
   TestResult,
   User,
   AdminCrudItem,
@@ -239,3 +245,25 @@ export const listBlocks = (professionalId?: string, start?: string, end?: string
 export const createBlock = (body: BlockUpsert) =>
   request<Block>("/bloqueios", { method: "POST", body: JSON.stringify(body) });
 export const deleteBlock = (id: string) => request<void>(`/bloqueios/${id}`, { method: "DELETE" });
+
+// Medical records
+export const getMedicalRecord = (patientId: string) =>
+  request<MedicalRecord>(`/prontuarios/pacientes/${patientId}`);
+export const updateMedicalRecord = (patientId: string, body: MedicalRecordUpsert) =>
+  request<MedicalRecord>(`/prontuarios/pacientes/${patientId}`, { method: "PUT", body: JSON.stringify(body) });
+export const listSessionNotes = (patientId: string) =>
+  request<SessionNote[]>(`/prontuarios/pacientes/${patientId}/evolucoes`);
+export const getSessionNoteByAppointment = (appointmentId: string) =>
+  request<SessionNote>(`/prontuarios/agendamentos/${appointmentId}/evolucao`);
+export const createSessionNote = (appointmentId: string, body: SessionNoteUpsert) =>
+  request<SessionNote>(`/prontuarios/agendamentos/${appointmentId}/evolucao`, { method: "POST", body: JSON.stringify(body) });
+export const updateSessionNote = (id: string, body: SessionNoteUpsert) =>
+  request<SessionNote>(`/prontuarios/evolucoes/${id}`, { method: "PUT", body: JSON.stringify(body) });
+export const signSessionNote = (id: string) =>
+  request<SessionNote>(`/prontuarios/evolucoes/${id}/assinar`, { method: "POST" });
+export const listMedicalAttachments = (patientId: string) =>
+  request<MedicalAttachment[]>(`/prontuarios/pacientes/${patientId}/anexos`);
+export const createMedicalAttachment = (patientId: string, body: MedicalAttachmentUpsert) =>
+  request<MedicalAttachment>(`/prontuarios/pacientes/${patientId}/anexos`, { method: "POST", body: JSON.stringify(body) });
+export const deleteMedicalAttachment = (id: string) =>
+  request<void>(`/prontuarios/anexos/${id}`, { method: "DELETE" });

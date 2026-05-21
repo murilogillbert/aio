@@ -1,20 +1,20 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Bell, CalendarCheck, Clock, Loader2, Plus, Search, UserCheck, Users, X, XCircle } from "lucide-react";
-import { Badge, Button, Card, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
+import { FormEvent, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Bell, CalendarCheck, Clock, Loader2, Plus, Search } from "lucide-react";
+import { Badge, Button, Card, Input, Modal, Skeleton, Textarea } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import {
   createPatient,
   deletePatient,
-  getMovimento,
-  getProfissionais,
-  getServicos,
-  listAppointments,
-  searchPatients,
   updatePatient,
 } from "../../services/api";
-import type { AppointmentRich, MetricsMovimento, PatientRich, PatientUpsert, Professional, Service } from "../../types";
+import type { PatientRich, PatientUpsert } from "../../types";
 import { currency, dateLabel } from "../../utils";
 import { useToast } from "../../context/ToastContext";
+import { useAppointmentsRange } from "../../hooks/useAppointments";
+import { useProfessionals, useServices } from "../../hooks/useCatalog";
+import { useMovementMetrics } from "../../hooks/useMetrics";
+import { usePatientsSearch } from "../../hooks/usePatients";
 
 export { ReceptionAgenda } from "./ReceptionAgenda";
 
@@ -22,29 +22,12 @@ export { ReceptionAgenda } from "./ReceptionAgenda";
 
 export function ReceptionDashboard() {
   const today = new Date().toISOString().slice(0, 10);
-  const [data, setData] = useState<MetricsMovimento | null>(null);
-  const [appointments, setAppointments] = useState<AppointmentRich[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  const { movement: data, loading: loadingMovement, reload: reloadMovement } = useMovementMetrics(today, 60_000);
+  const { appointments, loading: loadingAppointments, reload: reloadAppointments } = useAppointmentsRange(`${today}T00:00:00`, `${today}T23:59:59`);
+  const loading = loadingMovement || loadingAppointments;
   const refresh = async () => {
-    setLoading(true);
-    try {
-      const [mov, appts] = await Promise.all([
-        getMovimento(today),
-        listAppointments(`${today}T00:00:00`, `${today}T23:59:59`),
-      ]);
-      setData(mov);
-      setAppointments(appts);
-    } finally {
-      setLoading(false);
-    }
+    await Promise.all([reloadMovement(), reloadAppointments()]);
   };
-
-  useEffect(() => {
-    void refresh();
-    const id = window.setInterval(() => void refresh(), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
 
   if (loading || !data) return <Skeleton className="h-72" />;
 
@@ -137,28 +120,13 @@ const emptyPatient: PatientUpsert = {
 export function ReceptionPatients() {
   const { showToast } = useToast();
   const [search, setSearch] = useState("");
-  const [items, setItems] = useState<PatientRich[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { patients: items, loading, reload: load } = usePatientsSearch(search);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<PatientUpsert>(emptyPatient);
   const [duplicates, setDuplicates] = useState<PatientRich[] | null>(null);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      setItems(await searchPatients(search));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const id = window.setTimeout(() => void load(), 250);
-    return () => window.clearTimeout(id);
-  }, [search]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -256,6 +224,9 @@ export function ReceptionPatients() {
               <p className="mt-2 text-xs text-brown-mid">{patient.dependents} dependentes</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => openEdit(patient)}>Editar</Button>
+                <Link to={`/recepcao/pacientes/${patient.id}/prontuario`}>
+                  <Button variant="secondary">Prontuario</Button>
+                </Link>
                 <Button variant="ghost" onClick={() => void remove(patient)}>Inativar</Button>
               </div>
             </Card>
@@ -321,9 +292,8 @@ export function ReceptionPatients() {
 // ─── Messages (lista mais real) ─────────────────────────────────────────────
 
 export function ReceptionMessages() {
-  // Por enquanto retorno do MovementLog com filtro de mensagens; substitui o array literal antigo
-  const [data, setData] = useState<MetricsMovimento | null>(null);
-  useEffect(() => { void getMovimento().then(setData); }, []);
+  // Por enquanto retorno do MovementLog com filtro de mensagens; substitui o array literal antigo.
+  const { movement: data } = useMovementMetrics();
   const messageEvents = useMemo(() => data?.events.filter((event) => event.type === "MESSAGE_RECEIVED") ?? [], [data]);
   return (
     <>
@@ -354,9 +324,7 @@ export function ReceptionMessages() {
 // ─── Services (read-only, mantém igual mas usa serviços via API) ─────────────
 
 export function ReceptionServices() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => { getServicos().then(setServices).finally(() => setLoading(false)); }, []);
+  const { services, loading } = useServices();
   return (
     <>
       <PageHeader title="Consulta de serviços" description="Somente leitura para orientar agendamentos." />
@@ -378,9 +346,7 @@ export function ReceptionServices() {
 // ─── Professionals (read-only) ──────────────────────────────────────────────
 
 export function ReceptionProfessionals() {
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => { getProfissionais().then((items) => setProfessionals(items.filter((entry) => entry.role === "profissional"))).finally(() => setLoading(false)); }, []);
+  const { professionals, loading } = useProfessionals(true);
   return (
     <>
       <PageHeader title="Consulta de profissionais" description="Serviços, especialização e dados operacionais." />

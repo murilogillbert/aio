@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar, CalendarRange, ChevronLeft, ChevronRight, Plus, Search, Trash2, X, Repeat, MessageCircle } from "lucide-react";
 import { Badge, Button, Card, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
 import { PageHeader } from "../../components/Page";
@@ -91,6 +91,7 @@ export function ReceptionAgenda() {
   const [services, setServices] = useState<Service[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRich[]>([]);
   const [loading, setLoading] = useState(true);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [profFilter, setProfFilter] = useState("");
   const [profSearch, setProfSearch] = useState("");
   const [showCancelled, setShowCancelled] = useState(true);
@@ -112,23 +113,27 @@ export function ReceptionAgenda() {
     return { start: `${isoDate(weekStart)}T00:00:00`, end: `${isoDate(weekEnd)}T23:59:59` };
   }, [selectedDate, viewMode]);
 
-  const refetchAppointments = async () => {
-    const data = await listAppointments(queryRange.start, queryRange.end);
-    setAppointments(data);
-  };
+  const refetchAppointments = useCallback(async () => {
+    setAppointmentsLoading(true);
+    try {
+      const data = await listAppointments(queryRange.start, queryRange.end);
+      setAppointments(data);
+    } finally {
+      setAppointmentsLoading(false);
+    }
+  }, [queryRange.start, queryRange.end]);
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
       getProfissionais().then((items) => setProfessionals(items.filter((item) => item.role === "profissional"))),
       getServicos().then(setServices),
-      refetchAppointments(),
     ]).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     void refetchAppointments();
-  }, [queryRange.start, queryRange.end]);
+  }, [refetchAppointments]);
 
   const emptyForm: FormState = {
     patientId: "",
@@ -332,7 +337,7 @@ export function ReceptionAgenda() {
         </div>
       </Card>
 
-      {loading ? (
+      {loading || appointmentsLoading ? (
         <Skeleton className="h-96" />
       ) : viewMode === "day" ? (
         <DayGrid professionals={displayedProfs} appointments={visibleAppts.filter((appt) => appt.startTime.startsWith(selectedDate))} onCellClick={handleCellClick} onAppointmentClick={setSelectedAppt} />
@@ -428,7 +433,6 @@ function DayGrid({ professionals, appointments, onCellClick, onAppointmentClick 
           {professionals.map((pro) => (
             <ProfessionalColumn
               key={pro.id}
-              professional={pro}
               appointments={appointments.filter((appt) => appt.professionalId === pro.id)}
               onCellClick={(time) => onCellClick(pro.id, time)}
               onAppointmentClick={onAppointmentClick}
@@ -452,8 +456,7 @@ function TimeColumn() {
   );
 }
 
-function ProfessionalColumn({ professional, appointments, onCellClick, onAppointmentClick }: {
-  professional: Professional;
+function ProfessionalColumn({ appointments, onCellClick, onAppointmentClick }: {
   appointments: AppointmentRich[];
   onCellClick: (time: string) => void;
   onAppointmentClick: (appt: AppointmentRich) => void;

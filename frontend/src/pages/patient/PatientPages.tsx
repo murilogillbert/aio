@@ -1,12 +1,10 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
 import { CalendarPlus, MessageCircle, UserPlus } from "lucide-react";
 import { Avatar, Badge, Button, Card, EmptyState, Input, Textarea } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { useAuth } from "../../context/AuthContext";
 import { appointmentTitle, dateLabel } from "../../utils";
-import { getProfissionais, getServicos } from "../../services/api";
-import type { Professional, Service } from "../../types";
+import { useProfessionals, useServices } from "../../hooks/useCatalog";
 
 export function PatientDashboard() {
   const { user } = useAuth();
@@ -32,13 +30,8 @@ export function PatientDashboard() {
 export function PatientAppointments() {
   const { user } = useAuth();
   const appointments = user?.appointments ?? [];
-  const [services, setServices] = useState<Service[]>([]);
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
-
-  useEffect(() => {
-    getServicos().then(setServices).catch(() => setServices([]));
-    getProfissionais().then(setProfessionals).catch(() => setProfessionals([]));
-  }, []);
+  const { services } = useServices();
+  const { professionals } = useProfessionals();
 
   return (
     <>

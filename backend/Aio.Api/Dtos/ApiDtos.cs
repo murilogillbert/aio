@@ -404,6 +404,79 @@ public sealed record DuplicateMatchDto(IReadOnlyList<PatientRichDto> Matches);
 public sealed record BlockDto(string Id, string ProfessionalId, string StartAt, string EndAt, string Reason);
 public sealed record BlockUpsertDto(string ProfessionalId, string StartAt, string EndAt, string Reason);
 
+public sealed record MedicalRecordDto(
+    string Id,
+    string PatientId,
+    string PatientName,
+    string? BloodType,
+    string? Allergies,
+    string? ChronicConditions,
+    string? CurrentMedications,
+    string? FamilyHistory,
+    string? SurgicalHistory,
+    string? Habits,
+    decimal? HeightCm,
+    decimal? WeightKg,
+    string CreatedAt,
+    string? UpdatedAt,
+    bool IsRestrictedView);
+
+public sealed record MedicalRecordUpsertDto(
+    string? BloodType,
+    string? Allergies,
+    string? ChronicConditions,
+    string? CurrentMedications,
+    string? FamilyHistory,
+    string? SurgicalHistory,
+    string? Habits,
+    decimal? HeightCm,
+    decimal? WeightKg);
+
+public sealed record SessionNoteDto(
+    string Id,
+    string AppointmentId,
+    string PatientId,
+    string ProfessionalId,
+    string ProfessionalName,
+    string ServiceName,
+    string AppointmentStartTime,
+    string AppointmentStatus,
+    string? ChiefComplaint,
+    string? Subjective,
+    string? Objective,
+    string? Assessment,
+    string? Plan,
+    string? Diagnosis,
+    string? DiagnosisCode,
+    string? Prescription,
+    string? VitalSignsJson,
+    bool IsSigned,
+    string? SignedAt,
+    string CreatedAt,
+    string? UpdatedAt,
+    bool IsRestrictedView);
+
+public sealed record SessionNoteUpsertDto(
+    string? ChiefComplaint,
+    string? Subjective,
+    string? Objective,
+    string? Assessment,
+    string? Plan,
+    string? Diagnosis,
+    string? DiagnosisCode,
+    string? Prescription,
+    string? VitalSignsJson);
+
+public sealed record MedicalAttachmentDto(
+    string Id,
+    string PatientId,
+    string Title,
+    string FileUrl,
+    string FileType,
+    string CreatedAt);
+
+public sealed record MedicalAttachmentUpsertDto(string Title, string FileUrl, string FileType);
+
 public static class ApiIds
 {
     private static readonly Dictionary<string, Guid> ServiceIds = new()
