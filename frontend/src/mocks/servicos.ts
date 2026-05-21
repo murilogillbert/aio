@@ -1,0 +1,108 @@
+import type { Service } from "../types";
+
+export const servicesMock: Service[] = [
+  {
+    id: "svc-1",
+    name: "Avaliação Facial Integrada",
+    category: "Estética avançada",
+    shortDescription: "Plano personalizado com análise facial, histórico e metas de tratamento.",
+    description:
+      "Consulta completa para mapear necessidades, contraindicações, objetivos e sequência ideal de procedimentos.",
+    durationMinutes: 60,
+    priceFrom: 380,
+    professionalIds: ["pro-1", "pro-2"],
+    roomIds: ["sala-1"],
+    equipmentIds: ["eq-1"],
+  },
+  {
+    id: "svc-2",
+    name: "Bioestimulador de Colágeno",
+    category: "Estética avançada",
+    shortDescription: "Tratamento para melhora gradual de firmeza e textura da pele.",
+    description:
+      "Procedimento injetável com planejamento por região, revisão de fotos e acompanhamento de evolução.",
+    durationMinutes: 75,
+    priceFrom: 1800,
+    professionalIds: ["pro-1"],
+    roomIds: ["sala-2"],
+    equipmentIds: ["eq-2"],
+  },
+  {
+    id: "svc-3",
+    name: "Clareamento Dental Premium",
+    category: "Odontologia",
+    shortDescription: "Protocolo supervisionado com controle de sensibilidade.",
+    description:
+      "Clareamento conduzido por especialista, com registro de cor, proteção gengival e orientações pós-atendimento.",
+    durationMinutes: 90,
+    priceFrom: 950,
+    professionalIds: ["pro-3"],
+    roomIds: ["sala-3"],
+    equipmentIds: ["eq-3"],
+  },
+  {
+    id: "svc-4",
+    name: "Implantodontia Planejada",
+    category: "Odontologia",
+    shortDescription: "Planejamento de implantes com avaliação de exames e cronograma.",
+    description:
+      "Consulta especializada para diagnóstico, indicação, etapas cirúrgicas e previsibilidade do investimento.",
+    durationMinutes: 80,
+    priceFrom: 2500,
+    professionalIds: ["pro-3"],
+    roomIds: ["sala-3"],
+    equipmentIds: ["eq-4"],
+  },
+  {
+    id: "svc-5",
+    name: "Consulta Médica Particular",
+    category: "Medicina particular",
+    shortDescription: "Atendimento clínico com escuta ampliada e plano de acompanhamento.",
+    description:
+      "Consulta individual com anamnese, revisão de exames, hipóteses diagnósticas e orientações documentadas.",
+    durationMinutes: 50,
+    priceFrom: 620,
+    professionalIds: ["pro-4"],
+    roomIds: ["sala-1"],
+    equipmentIds: [],
+  },
+  {
+    id: "svc-6",
+    name: "Retorno Médico",
+    category: "Medicina particular",
+    shortDescription: "Revisão de exames e ajuste de conduta.",
+    description:
+      "Atendimento de continuidade para revisar evolução, exames e adequar o plano de cuidado.",
+    durationMinutes: 35,
+    priceFrom: 320,
+    professionalIds: ["pro-4"],
+    roomIds: ["sala-1"],
+    equipmentIds: [],
+  },
+  {
+    id: "svc-7",
+    name: "Terapia de Performance",
+    category: "Terapias",
+    shortDescription: "Sessão focada em performance, autocuidado e rotina.",
+    description:
+      "Abordagem terapêutica para construir repertório emocional, metas realistas e acompanhamento entre sessões.",
+    durationMinutes: 55,
+    priceFrom: 420,
+    professionalIds: ["pro-5"],
+    roomIds: ["sala-4"],
+    equipmentIds: [],
+  },
+  {
+    id: "svc-8",
+    name: "Sessão de Manutenção",
+    category: "Terapias",
+    shortDescription: "Acompanhamento periódico para pacientes em plano ativo.",
+    description:
+      "Sessão de continuidade com revisão de evolução, ajustes e próximos passos do plano terapêutico.",
+    durationMinutes: 45,
+    priceFrom: 340,
+    professionalIds: ["pro-5"],
+    roomIds: ["sala-4"],
+    equipmentIds: [],
+  },
+];
