@@ -1,115 +1,96 @@
 # Backend AIO
 
-Fases 2 e 3 implementadas com .NET 10, ASP.NET Core Web API, Entity Framework Core 10, SQL Server em Docker, JWT com refresh token e endpoints reais para integracao do front.
+API em Node.js + Express + TypeScript, usando Prisma sobre o Postgres gerenciado pelo Supabase.
 
 ## Estrutura
 
-- `Aio.Api`: controllers e configuracao HTTP.
-- `Aio.Application`: interfaces e services.
-- `Aio.Domain`: entidades de dominio.
-- `Aio.Infrastructure`: EF Core, `DbContext`, repositories, migrations e seeds.
-- `Scripts/001_initial_create.sql`: script SQL idempotente gerado a partir da migration inicial.
-- `Scripts/002_phase3_auth_and_integration.sql`: script SQL idempotente com `refresh_tokens`.
+- `src/index.ts` / `src/app.ts`: bootstrap do servidor Express.
+- `src/routes/*.ts`: rotas HTTP, uma por domínio (auth, catálogo, agenda, agendamentos, bloqueios, pacientes, prontuários, métricas, admin, serviços, clínica/integrações, recrutamento, uploads).
+- `src/dto/*.ts`: mapeamento entre o schema Prisma e os contratos JSON usados pelo front-end.
+- `src/lib/*.ts`: utilidades (JWT, hash de senha, datas, detecção de conflito de horário, período de métricas).
+- `src/middleware/*.ts`: autenticação JWT (`requireAuth`, `requireRole`) e tratamento central de erros.
+- `src/jobs/*.ts`: stubs de heartbeat (paridade com os hosted services da versão anterior — sem lógica real de disparo).
+- `prisma/schema.prisma`: schema completo do Postgres.
+- `prisma/seed.ts`: dados de demonstração (usuários de teste, catálogo, agenda, configurações white-label etc).
 
-## Rodar SQL Server
+## Configuração
 
-Na raiz do monorepo:
-
-```bash
-docker compose up -d sqlserver
-```
-
-Connection string padrao:
-
-```text
-Server=localhost,14330;Database=Aio;User Id=sa;Password=TroqueEstaSenha!2026;TrustServerCertificate=True;Encrypt=False;Connect Timeout=60
-```
-
-A porta local `14330` evita conflito com instancias locais que ja usam `1433`.
-
-## Aplicar migrations
+Copie `.env.example` para `.env` e preencha com as credenciais do seu projeto Supabase:
 
 ```bash
-cd backend
-dotnet tool restore
-dotnet ef database update --project Aio.Infrastructure/Aio.Infrastructure.csproj --startup-project Aio.Api/Aio.Api.csproj
+cp .env.example .env
 ```
 
-## Rodar API
+- `DATABASE_URL`: connection string do pooler em modo *transaction* (porta 6543) — usada em runtime pelo Prisma Client.
+- `DIRECT_URL`: connection string do pooler em modo *session* (porta 5432) — usada por `prisma db push`/`migrate`.
+- `SUPABASE_URL` / `SUPABASE_SECRET_KEY` / `SUPABASE_STORAGE_BUCKET`: acesso ao Supabase Storage (upload de anexos).
+- `JWT_*`: emissão/validação dos tokens da própria API (auth independente do Supabase Auth).
+- `CORS_ORIGINS`: origens extras liberadas (além de `localhost`/`127.0.0.1`), por exemplo o domínio da Vercel.
+
+## Rodar
 
 ```bash
-cd backend
-dotnet run --project Aio.Api/Aio.Api.csproj --urls http://127.0.0.1:5088
+npm install
+npm run prisma:push   # cria/atualiza o schema no Postgres do Supabase
+npm run seed           # popula dados de demonstração (idempotente — não duplica se já rodou)
+npm run dev             # inicia a API em http://127.0.0.1:5088 (porta configurável via PORT)
 ```
 
-Endpoints minimos de validacao:
+Outros scripts úteis: `npm run build` / `npm start` (build de produção), `npm run prisma:studio` (explorar o banco).
 
-- `GET /api/configuracoes`
-- `PUT /api/configuracoes` com role `admin`
-- `POST /api/auth/login`
-- `POST /api/auth/cadastro`
-- `POST /api/auth/refresh`
-- `GET /api/catalogo/servicos`
-- `GET /api/catalogo/profissionais`
-- `GET /api/catalogo/categorias`
-- `GET /api/agenda`
-- `POST /api/agenda/agendamentos` autenticado
-- `GET /api/metricas`
-- `GET /api/metricas/custos`
-- `GET /api/recrutamento/vagas`
-- `GET /api/recrutamento/candidaturas`
-- `GET /api/integracoes` com role `admin`
-- `GET /api/jobs` com role `admin`
+## Autenticação
+
+JWT próprio (não usa o Supabase Auth): login/cadastro emitem um par `token` (access, expira em `JWT_ACCESS_TOKEN_MINUTES`) + `refreshToken` (rotativo, expira em `JWT_REFRESH_TOKEN_DAYS`, hash SHA-256 armazenado no banco). Senhas com hash bcrypt real.
+
+Roles: `paciente`, `profissional`, `recepcao`, `admin` — cada uma com uma role só por usuário na prática, embora o schema suporte N:N.
 
 ## Seeds
 
-Os seeds espelham os mocks da fase 1:
+Os seeds espelham a demonstração original:
 
-- usuarios de teste: `paciente@aio.com`, `profissional@aio.com`, `recepcao@aio.com`, `admin@aio.com`
-- 8 servicos em categorias
-- 5 profissionais atendentes e 2 funcionarios nao atendentes
-- dependentes, agendamentos, conversas, templates, regras de notificacao
-- banners, configuracoes white label, conteudo Sobre, metricas e custos
-- vagas, candidaturas e banco de talentos
-
-As senhas estao armazenadas como marcador de seed (`seed:senha123`) e devem ser substituidas por hash real na fase 3.
+- 4 usuários de teste: `paciente@aio.com`, `profissional@aio.com`, `recepcao@aio.com`, `admin@aio.com` (todos com senha `senha123`, agora com hash bcrypt real).
+- 8 serviços em 4 categorias, 4 salas, 4 equipamentos.
+- 7 profissionais (5 atendentes com regras de comissão específicas + 2 administrativos).
+- 1 paciente com 2 dependentes, agendamentos de exemplo com pagamento/comissão.
+- Configurações white-label completas (tema, endereço, redes sociais, banners, sobre, marcos históricos).
+- Métricas e custos de exemplo para os últimos 6 meses.
 
 ## Diagrama ER
 
 ```mermaid
 erDiagram
-  usuarios ||--o{ usuario_roles : possui
-  roles ||--o{ usuario_roles : classifica
-  usuarios ||--o| pacientes : perfil
-  pacientes ||--o{ dependentes : possui
-  usuarios ||--o| profissionais : perfil
-  usuarios ||--o| funcionarios : perfil
+  User ||--o{ UserRole : possui
+  Role ||--o{ UserRole : classifica
+  User ||--o| Patient : perfil
+  Patient ||--o{ Dependent : possui
+  User ||--o| Professional : perfil
+  User ||--o| Employee : perfil
 
-  profissionais ||--o{ profissional_servicos : realiza
-  servicos ||--o{ profissional_servicos : habilita
-  servicos ||--o{ servico_categorias : classifica
-  categorias ||--o{ servico_categorias : agrupa
-  profissionais ||--o{ profissional_horarios : atende
+  Professional ||--o{ ProfessionalService : realiza
+  Service ||--o{ ProfessionalService : habilita
+  Service ||--o{ ServiceCategory : classifica
+  Category ||--o{ ServiceCategory : agrupa
+  Professional ||--o{ ProfessionalSchedule : atende
 
-  salas ||--o{ sala_servicos : comporta
-  servicos ||--o{ sala_servicos : usa
-  salas ||--o{ sala_equipamentos : contem
-  equipamentos ||--o{ sala_equipamentos : instalado
+  Room ||--o{ RoomService : comporta
+  Service ||--o{ RoomService : usa
+  Room ||--o{ RoomEquipment : contem
+  Equipment ||--o{ RoomEquipment : instalado
 
-  pacientes ||--o{ agendamentos : agenda
-  dependentes ||--o{ agendamentos : opcional
-  profissionais ||--o{ agendamentos : atende
-  servicos ||--o{ agendamentos : contratado
-  agendamentos ||--o{ agendamento_status_log : historico
-  agendamentos ||--o{ pagamentos : cobra
-  agendamentos ||--o{ comissoes : gera
+  Patient ||--o{ Appointment : agenda
+  Dependent ||--o{ Appointment : opcional
+  Professional ||--o{ Appointment : atende
+  Service ||--o{ Appointment : contratado
+  Appointment ||--o{ AppointmentStatusLog : historico
+  Appointment ||--o| Payment : cobra
+  Appointment ||--o{ Commission : gera
 
-  conversas ||--o{ mensagens : contem
-  conversas ||--o{ conversa_participantes : participa
-  usuarios ||--o{ conversa_participantes : participa
+  Conversation ||--o{ Message : contem
+  Conversation ||--o{ ConversationParticipant : participa
+  User ||--o{ ConversationParticipant : participa
 
-  templates_mensagem ||--o{ notificacao_regras : usado
-  planos ||--o{ plano_servicos : cobre
-  servicos ||--o{ plano_servicos : incluso
-  vagas ||--o{ candidaturas : recebe
+  MessageTemplate ||--o{ NotificationRule : usado
+  Plan ||--o{ PlanService : cobre
+  Service ||--o{ PlanService : incluso
+  JobOpening ||--o{ JobApplication : recebe
 ```

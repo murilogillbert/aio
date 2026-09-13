@@ -1,0 +1,668 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum AppointmentStatus {
+  Pendente
+  Agendado
+  Confirmado
+  Cancelado
+  Realizado
+  EmAndamento
+  NaoCompareceu
+}
+
+enum AppointmentType {
+  Presencial
+  Online
+}
+
+enum PatientConfirmation {
+  Pendente
+  Confirmado
+  NaoConfirmado
+}
+
+enum CancellationSource {
+  Paciente
+  Recepcao
+  Profissional
+  Sistema
+}
+
+enum EquipmentStatus {
+  Operacional
+  Manutencao
+  Quebrado
+  Inativo
+}
+
+enum ChannelKind {
+  Aplicacao
+  WhatsApp
+  Email
+  Interno
+}
+
+enum CostType {
+  Fixo
+  Variavel
+}
+
+model User {
+  id                       String                     @id @default(uuid())
+  fullName                 String
+  email                    String                     @unique
+  passwordHash             String
+  phone                    String                     @default("")
+  createdAt                DateTime                   @default(now())
+  patient                  Patient?
+  professional             Professional?
+  employee                 Employee?
+  userRoles                UserRole[]
+  refreshTokens            RefreshToken[]
+  conversationParticipants ConversationParticipant[]
+}
+
+model RefreshToken {
+  id                  String    @id @default(uuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tokenHash           String    @unique
+  expiresAt           DateTime
+  createdAt           DateTime  @default(now())
+  revokedAt           DateTime?
+  replacedByTokenHash String?
+
+  @@index([userId, expiresAt])
+}
+
+model Role {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  userRoles UserRole[]
+}
+
+model UserRole {
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model Patient {
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  birthDate     DateTime?      @db.Date
+  cpf           String         @default("")
+  address       String         @default("")
+  city          String         @default("")
+  state         String         @default("")
+  postalCode    String         @default("")
+  notes         String         @default("")
+  isActive      Boolean        @default(true)
+  dependents    Dependent[]
+  appointments  Appointment[]
+  medicalRecord MedicalRecord?
+}
+
+model Dependent {
+  id           String        @id @default(uuid())
+  patientId    String
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  fullName     String
+  birthDate    DateTime      @db.Date
+  relationship String        @default("")
+  appointments Appointment[]
+}
+
+model Professional {
+  id                       String                 @id @default(uuid())
+  userId                   String?                @unique
+  user                     User?                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  name                     String
+  photoUrl                 String                 @default("")
+  bio                      String                 @default("")
+  specialty                String                 @default("")
+  email                    String                 @default("")
+  phone                    String                 @default("")
+  licenseNumber            String                 @default("")
+  councilType              String                 @default("")
+  languages                String                 @default("")
+  defaultCommissionPercent Decimal                @default(0) @db.Decimal(5, 2)
+  monthlyFixedPayment      Decimal?               @db.Decimal(12, 2)
+  providesCare             Boolean                @default(false)
+  isActive                 Boolean                @default(true)
+  professionalServices     ProfessionalService[]
+  schedules                ProfessionalSchedule[]
+  blocks                   ProfessionalBlock[]
+  categories               ProfessionalCategory[]
+  appointments             Appointment[]
+  sessionNotes             SessionNote[]
+  commissions              Commission[]
+}
+
+model ProfessionalBlock {
+  id             String       @id @default(uuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  startAt        DateTime
+  endAt          DateTime
+  reason         String       @default("")
+  createdAt      DateTime     @default(now())
+
+  @@index([professionalId, startAt, endAt])
+}
+
+model ProfessionalCategory {
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  categoryId     String
+  category       Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([professionalId, categoryId])
+}
+
+model ProfessionalSchedule {
+  id             String       @id @default(uuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  weekday        Int
+  startTime      String
+  endTime        String
+
+  @@index([professionalId, weekday])
+}
+
+model Employee {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  department    String   @default("")
+  monthlySalary Decimal? @db.Decimal(12, 2)
+}
+
+model Service {
+  id                   String                 @id @default(uuid())
+  name                 String
+  shortDescription     String                 @default("")
+  description          String                 @default("")
+  preparation          String                 @default("")
+  color                String                 @default("#C2410C")
+  durationMinutes      Int                    @default(60)
+  basePrice            Decimal                @default(0) @db.Decimal(12, 2)
+  requiresRoom         Boolean                @default(false)
+  defaultRoomId        String?
+  defaultRoom          Room?                  @relation(fields: [defaultRoomId], references: [id], onDelete: Restrict)
+  onlineBooking        Boolean                @default(true)
+  showPrice            Boolean                @default(true)
+  showDuration         Boolean                @default(true)
+  isActive             Boolean                @default(true)
+  serviceCategories    ServiceCategory[]
+  professionalServices ProfessionalService[]
+  roomServices         RoomService[]
+  serviceEquipments    ServiceEquipment[]
+  taxes                ServiceTax[]
+  planServices         PlanService[]
+  appointments         Appointment[]
+}
+
+model Category {
+  id                     String                 @id @default(uuid())
+  name                   String
+  type                   String                 @default("")
+  description            String                 @default("")
+  parentId               String?
+  parent                 Category?              @relation("CategoryChildren", fields: [parentId], references: [id], onDelete: Restrict)
+  children               Category[]             @relation("CategoryChildren")
+  isActive               Boolean                @default(true)
+  serviceCategories      ServiceCategory[]
+  professionalCategories ProfessionalCategory[]
+}
+
+model ServiceEquipment {
+  serviceId   String
+  service     Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  required    Boolean   @default(true)
+
+  @@id([serviceId, equipmentId])
+}
+
+model ServiceCategory {
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, categoryId])
+}
+
+model ProfessionalService {
+  professionalId    String
+  professional      Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  serviceId         String
+  service           Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  compensationType  String       @default("default_commission")
+  compensationValue Decimal?     @db.Decimal(12, 2)
+
+  @@id([professionalId, serviceId])
+}
+
+model Room {
+  id              String          @id @default(uuid())
+  name            String
+  capacity        Int             @default(0)
+  notes           String          @default("")
+  description     String          @default("")
+  location        String          @default("")
+  isActive        Boolean         @default(true)
+  roomServices    RoomService[]
+  roomEquipments  RoomEquipment[]
+  defaultServices Service[]
+  appointments    Appointment[]
+}
+
+model RoomService {
+  roomId    String
+  room      Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([roomId, serviceId])
+}
+
+model Equipment {
+  id                    String                  @id @default(uuid())
+  name                  String
+  category              String                  @default("")
+  quantity              Int                     @default(0)
+  unitValue             Decimal                 @default(0) @db.Decimal(12, 2)
+  serialNumber          String                  @default("")
+  location              String                  @default("")
+  status                EquipmentStatus         @default(Operacional)
+  maintenanceDate       DateTime?               @db.Date
+  isActive              Boolean                 @default(true)
+  roomEquipments        RoomEquipment[]
+  serviceEquipments     ServiceEquipment[]
+  appointmentEquipments AppointmentEquipment[]
+}
+
+model RoomEquipment {
+  roomId      String
+  room        Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@id([roomId, equipmentId])
+}
+
+model Appointment {
+  id                  String                 @id @default(uuid())
+  patientId           String
+  patient             Patient                @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  dependentId         String?
+  dependent           Dependent?             @relation(fields: [dependentId], references: [id], onDelete: Restrict)
+  professionalId      String
+  professional        Professional           @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  serviceId           String
+  service              Service                @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  roomId              String?
+  room                Room?                  @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  planId              String?
+  plan                Plan?                  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  date                DateTime               @db.Date
+  time                String
+  status              AppointmentStatus      @default(Pendente)
+  type                AppointmentType        @default(Presencial)
+  patientConfirmation PatientConfirmation    @default(Pendente)
+  cancellationSource  CancellationSource?
+  cancelledAt         DateTime?
+  recurrenceGroupId   String?
+  notes               String                 @default("")
+  createdAt           DateTime               @default(now())
+  statusLogs          AppointmentStatusLog[]
+  equipmentsUsed      AppointmentEquipment[]
+  sessionNote         SessionNote?
+  payment             Payment?
+  commissions         Commission[]
+
+  @@unique([professionalId, date, time])
+  @@index([recurrenceGroupId])
+}
+
+model AppointmentEquipment {
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  equipmentId   String
+  equipment     Equipment   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@id([appointmentId, equipmentId])
+}
+
+model AppointmentStatusLog {
+  id              String            @id @default(uuid())
+  appointmentId   String
+  appointment     Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  status          AppointmentStatus
+  changedAt       DateTime          @default(now())
+  changedByUserId String?
+}
+
+model Conversation {
+  id           String                     @id @default(uuid())
+  title        String                     @default("")
+  channel      ChannelKind                @default(Aplicacao)
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorUserId   String?
+  authorName     String       @default("")
+  channel        ChannelKind  @default(Aplicacao)
+  body           String       @default("")
+  sentAt         DateTime     @default(now())
+
+  @@index([conversationId, sentAt])
+}
+
+model MessagingChannel {
+  id              String @id @default(uuid())
+  name            String
+  participantRule String @default("")
+}
+
+model NotificationRule {
+  id         String          @id @default(uuid())
+  trigger    String          @default("")
+  leadTime   String          @default("")
+  channel    String          @default("")
+  templateId String
+  template   MessageTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  active     Boolean         @default(true)
+}
+
+model MessageTemplate {
+  id                String              @id @default(uuid())
+  occasion          String              @default("")
+  channel           String              @default("")
+  body              String              @default("")
+  notificationRules NotificationRule[]
+}
+
+model Plan {
+  id           String        @id @default(uuid())
+  name         String
+  description  String        @default("")
+  planServices PlanService[]
+  appointments Appointment[]
+}
+
+model PlanService {
+  planId       String
+  plan         Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  serviceId    String
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  coverageRule String   @default("")
+  customPrice  Decimal? @db.Decimal(12, 2)
+  showPrice    Boolean  @default(true)
+
+  @@id([planId, serviceId])
+}
+
+model JobOpening {
+  id           String            @id @default(uuid())
+  title        String
+  department   String            @default("")
+  description  String            @default("")
+  status       String            @default("")
+  applications JobApplication[]
+}
+
+model JobApplication {
+  id           String      @id @default(uuid())
+  jobOpeningId String?
+  jobOpening   JobOpening? @relation(fields: [jobOpeningId], references: [id], onDelete: Restrict)
+  candidate    String
+  email        String      @default("")
+  message      String      @default("")
+  createdAt    DateTime    @default(now())
+}
+
+model TalentPoolEntry {
+  id        String   @id @default(uuid())
+  candidate String
+  email     String   @default("")
+  message   String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model Banner {
+  id        String  @id @default(uuid())
+  title     String  @default("")
+  subtitle  String  @default("")
+  ctaText   String  @default("")
+  ctaUrl    String  @default("")
+  imageUrl  String  @default("")
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+}
+
+model AppSetting {
+  id        String @id @default(uuid())
+  key       String @unique
+  value     String @default("")
+  valueType String @default("string")
+}
+
+model HistoricMilestone {
+  id          String @id @default(uuid())
+  yearLabel   String @default("")
+  title       String @default("")
+  description String @default("")
+  sortOrder   Int    @default(0)
+}
+
+model MissionVisionValue {
+  id      String @id @default(uuid())
+  mission String @default("")
+  vision  String @default("")
+  values  String @default("")
+}
+
+model AboutGalleryItem {
+  id        String @id @default(uuid())
+  imageUrl  String @default("")
+  sortOrder Int    @default(0)
+}
+
+model Cost {
+  id         String   @id @default(uuid())
+  monthLabel String   @default("")
+  type       CostType @default(Fixo)
+  name       String   @default("")
+  value      Decimal  @default(0) @db.Decimal(12, 2)
+}
+
+model Payment {
+  id            String      @id @default(uuid())
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  grossAmount   Decimal     @default(0) @db.Decimal(12, 2)
+  method        String      @default("")
+  paidAt        DateTime    @default(now())
+}
+
+model Commission {
+  id             String       @id @default(uuid())
+  appointmentId  String
+  appointment    Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  amount         Decimal      @default(0) @db.Decimal(12, 2)
+  percent        Decimal      @default(0) @db.Decimal(5, 2)
+}
+
+model ServiceTax {
+  id        String  @id @default(uuid())
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  name      String  @default("")
+  percent   Decimal @default(0) @db.Decimal(5, 2)
+}
+
+model MetricsSnapshot {
+  id               String  @id @default(uuid())
+  monthLabel       String  @default("")
+  revenue          Decimal @default(0) @db.Decimal(12, 2)
+  profit           Decimal @default(0) @db.Decimal(12, 2)
+  appointments     Int     @default(0)
+  ticketAverage    Decimal @default(0) @db.Decimal(12, 2)
+  occupancyRate    Decimal @default(0) @db.Decimal(5, 2)
+  cancellationRate Decimal @default(0) @db.Decimal(5, 2)
+  newPatients      Int     @default(0)
+}
+
+model MovementLog {
+  id          String   @id @default(uuid())
+  eventType   String   @default("")
+  description String   @default("")
+  userId      String?
+  createdAt   DateTime @default(now())
+
+  @@index([eventType, createdAt])
+}
+
+model MedicalRecord {
+  id                  String               @id @default(uuid())
+  patientId           String               @unique
+  patient             Patient              @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  bloodType           String               @default("")
+  allergies           String               @default("")
+  chronicConditions   String               @default("")
+  currentMedications  String               @default("")
+  familyHistory       String               @default("")
+  surgicalHistory      String               @default("")
+  habits              String               @default("")
+  heightCm            Decimal?             @db.Decimal(5, 2)
+  weightKg            Decimal?             @db.Decimal(5, 2)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime?
+  updatedByUserId     String?
+  sessionNotes        SessionNote[]
+  attachments         MedicalAttachment[]
+}
+
+model SessionNote {
+  id              String        @id @default(uuid())
+  medicalRecordId String
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Restrict)
+  appointmentId   String        @unique
+  appointment     Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  professionalId  String
+  professional    Professional  @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  chiefComplaint  String        @default("")
+  subjective      String        @default("")
+  objective       String        @default("")
+  assessment      String        @default("")
+  plan            String        @default("")
+  diagnosis       String        @default("")
+  diagnosisCode   String        @default("")
+  prescription    String        @default("")
+  vitalSignsJson  String        @default("")
+  isSigned        Boolean       @default(false)
+  signedAt        DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime?
+}
+
+model MedicalAttachment {
+  id               String        @id @default(uuid())
+  medicalRecordId  String
+  medicalRecord    MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  title            String        @default("")
+  fileUrl          String        @default("")
+  fileType         String        @default("")
+  uploadedByUserId String?
+  createdAt        DateTime      @default(now())
+}
+
+model Clinic {
+  id      String @id @default(uuid())
+  name    String @default("")
+  cnpj    String @default("")
+  email   String @default("")
+  phone   String @default("")
+
+  gmailClientId       String?
+  gmailClientSecret   String?
+  gmailAccessToken    String?
+  gmailRefreshToken   String?
+  gmailTokenExpiresAt DateTime?
+  gmailConnected      Boolean   @default(false)
+
+  pubsubProjectId      String?
+  pubsubTopicName      String?
+  pubsubServiceAccount String?
+  pubsubConnected      Boolean @default(false)
+
+  mpAccessTokenProd    String?
+  mpAccessTokenSandbox String?
+  mpPublicKey          String?
+  mpWebhookSecret      String?
+  mpSandboxMode        Boolean @default(true)
+  mpConnected          Boolean @default(false)
+
+  waPhoneNumberId String?
+  waWabaId        String?
+  waAccessToken   String?
+  waVerifyToken   String?
+  waAppSecret     String?
+  waConnected     Boolean @default(false)
+
+  smtpHost        String?
+  smtpPort        Int?
+  smtpUsername    String?
+  smtpPassword    String?
+  smtpFrom        String?
+  smtpConnected   Boolean @default(false)
+
+  resendApiKey      String?
+  resendFromEmail   String?
+  resendFromName    String?
+  resendConnected   Boolean @default(false)
+
+  igAccountId    String?
+  igPageId       String?
+  igAccessToken  String?
+  igAppSecret    String?
+  igVerifyToken  String?
+  igConnected    Boolean @default(false)
+
+  remindersEnabled Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime?
+}

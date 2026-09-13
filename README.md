@@ -2,11 +2,12 @@
 
 Monorepo do sistema AIO para clinicas e consultorios premium em formato white label.
 
-## Status
+## Stack
 
-- Fase 1: front-end React/Vite com mock data, rotas navegaveis, autenticacao simulada, fluxo de agendamento e design white label dinamico.
-- Fase 2: backend .NET 10 com SQL Server em Docker, Entity Framework Core, migration inicial, seeds equivalentes aos mocks e script SQL versionado.
-- Fase 3: front-end integrado a API real, JWT com refresh token, endpoints de catalogo, agendamento, recrutamento, metricas, configuracoes white label, stubs de integracoes e jobs de background.
+- **Front-end**: React 19 + Vite + TypeScript, hospedado na Vercel.
+- **Back-end**: Node.js + Express + TypeScript, rodando localmente (não deployado).
+- **Banco de dados**: PostgreSQL gerenciado pelo Supabase, acessado via Prisma ORM.
+- **Storage**: bucket `uploads` do Supabase Storage, para anexos de prontuário e afins.
 
 ## Como rodar o front-end
 
@@ -24,17 +25,18 @@ Configure `frontend/.env` se quiser mudar a URL da API:
 VITE_API_URL=http://127.0.0.1:5088/api
 ```
 
-## Como rodar o banco e backend
+## Como rodar o backend
 
 ```bash
-docker compose up -d sqlserver
 cd backend
-dotnet tool restore
-dotnet ef database update --project Aio.Infrastructure/Aio.Infrastructure.csproj --startup-project Aio.Api/Aio.Api.csproj
-dotnet run --project Aio.Api/Aio.Api.csproj --urls http://127.0.0.1:5088
+npm install
+cp .env.example .env   # preencha com as credenciais do seu projeto Supabase
+npm run prisma:push    # cria o schema no Postgres do Supabase
+npm run seed           # popula dados de demonstração
+npm run dev            # inicia a API em http://127.0.0.1:5088
 ```
 
-O SQL Server publica a porta local `14330` para evitar conflito com instancias locais na `1433`.
+Variáveis necessárias em `backend/.env`: `DATABASE_URL`/`DIRECT_URL` (Postgres do Supabase, pooler 6543/5432), `SUPABASE_URL`/`SUPABASE_SECRET_KEY`/`SUPABASE_STORAGE_BUCKET` (Storage), `JWT_*` (assinatura dos tokens da API) e `CORS_ORIGINS` (domínio da Vercel, quando publicado).
 
 ## Credenciais de teste
 
@@ -47,17 +49,14 @@ O SQL Server publica a porta local `14330` para evitar conflito com instancias l
 
 ## Arquitetura
 
-- `frontend/src/mocks`: dados white label, servicos, profissionais, usuarios, agenda, metricas, vagas e custos.
-- `frontend/src/services/api.ts`: camada mockada com `Promises` e atraso artificial de 300 a 600ms.
+- `frontend/src/mocks`: dados legados da fase 1 (mock), mantidos apenas como referência histórica — não são mais usados pelas telas reais.
+- `frontend/src/services/api.ts`: camada de acesso à API Express real.
 - `frontend/src/context/ConfigContext.tsx`: configuracoes white label e variaveis CSS dinamicas.
-- `frontend/src/context/AuthContext.tsx`: autenticacao fake via `localStorage`, token simulado e redirect por role.
-- `backend/Aio.Api`: controllers e configuracao HTTP.
-- `backend/Aio.Application`: interfaces e services.
-- `backend/Aio.Domain`: entidades de dominio.
-- `backend/Aio.Infrastructure`: EF Core, DbContext, repositories, migrations e seeds.
-- `backend/Scripts/001_initial_create.sql`: script SQL idempotente da migration inicial.
-- `backend/Scripts/002_phase3_auth_and_integration.sql`: script SQL idempotente para refresh tokens da fase 3.
-- `docker-compose.yml`: SQL Server funcional com volume persistente.
+- `frontend/src/context/AuthContext.tsx`: autenticacao via JWT emitido pelo backend, com refresh token.
+- `backend/src/routes`: rotas Express, uma por domínio (auth, catálogo, agenda, agendamentos, pacientes, prontuários, métricas, admin, serviços, clínica/integrações, uploads etc).
+- `backend/src/dto`: mapeamento entre o schema Prisma e os contratos JSON esperados pelo front.
+- `backend/prisma/schema.prisma`: schema completo do Postgres (Supabase).
+- `backend/prisma/seed.ts`: seed de demonstração (usuários de teste, catálogo, agenda, white-label etc).
 
 ## Rotas principais
 
@@ -73,4 +72,10 @@ Admin: `/admin`, `/admin/profissionais`, `/admin/servicos`, `/admin/recrutamento
 
 ## White label
 
-Nenhum componente do front fixa nome, logo, paleta ou conteudo institucional. A configuracao inicial vem de `frontend/src/mocks/config.ts`; na fase 2, as mesmas configuracoes tambem estao seedadas na tabela `configuracoes`.
+Nenhum componente do front fixa nome, logo, paleta ou conteudo institucional. A configuracao inicial vem do seed (`backend/prisma/seed.ts`), gravada na tabela `AppSetting` e servida por `GET /api/configuracoes`.
+
+## Deploy
+
+- **Front-end (Vercel)**: aponte `VITE_API_URL` para onde o backend estiver acessível. Como o backend roda local por padrão, o front em produção só conseguirá falar com a API se você expuser o backend local publicamente (túnel, VPN, etc.) — isso é uma decisão de infraestrutura à parte.
+- **Backend**: local, via `npm run dev` (ou `npm run build && npm start` para rodar a build compilada).
+- **Banco**: Supabase Postgres, gerenciado direto pelo painel do Supabase.

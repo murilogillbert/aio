@@ -1,6 +1,0 @@
-<Solution>
-  <Project Path="Aio.Api/Aio.Api.csproj" />
-  <Project Path="Aio.Application/Aio.Application.csproj" />
-  <Project Path="Aio.Domain/Aio.Domain.csproj" />
-  <Project Path="Aio.Infrastructure/Aio.Infrastructure.csproj" />
-</Solution>
