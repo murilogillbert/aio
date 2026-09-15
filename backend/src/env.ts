@@ -21,6 +21,6 @@ export const env = {
   },
   corsOrigins: (process.env.CORS_ORIGINS ?? "")
     .split(",")
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
     .filter(Boolean),
 };

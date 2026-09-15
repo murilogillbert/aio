@@ -27,7 +27,8 @@ const localOrigins = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || localOrigins.test(origin) || env.corsOrigins.includes(origin)) {
+      const normalized = origin?.replace(/\/+$/, "");
+      if (!normalized || localOrigins.test(normalized) || env.corsOrigins.includes(normalized)) {
         callback(null, true);
       } else {
         callback(null, false);
