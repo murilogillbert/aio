@@ -1,9 +1,10 @@
 import { FormEvent, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Input } from "../../components/ui";
 import { PageHeader } from "../../components/Page";
 import { roleHome, useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import { forgotPassword, resetPassword } from "../../services/api";
 
 const phoneMask = (value: string) => {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -47,8 +48,108 @@ export function Login() {
           <Button loading={loading}>Entrar</Button>
         </form>
         <p className="mt-4 text-sm text-brown-mid">
+          <Link to="/esqueci-senha" className="font-bold text-primary">Esqueci minha senha</Link>
+        </p>
+        <p className="mt-2 text-sm text-brown-mid">
           Ainda não tem conta? <Link to="/cadastro" className="font-bold text-primary">Cadastre-se</Link>
         </p>
+      </Card>
+    </main>
+  );
+}
+
+export function ForgotPassword() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const { showToast } = useToast();
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    try {
+      await forgotPassword(email);
+      setSent(true);
+    } catch {
+      showToast("error", "Não foi possível processar o pedido. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="route-fade mx-auto max-w-md px-4 py-10">
+      <PageHeader title="Esqueci minha senha" description="Informe seu email para receber um link de redefinição." />
+      <Card>
+        {sent ? (
+          <p className="text-sm text-brown-mid">Se este email estiver cadastrado, você receberá um link para redefinir a senha em instantes.</p>
+        ) : (
+          <form className="grid gap-4" onSubmit={submit}>
+            <Input label="E-mail" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            <Button loading={loading}>Enviar link</Button>
+          </form>
+        )}
+        <p className="mt-4 text-sm text-brown-mid">
+          <Link to="/login" className="font-bold text-primary">Voltar ao login</Link>
+        </p>
+      </Card>
+    </main>
+  );
+}
+
+export function ResetPassword() {
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") ?? "";
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
+  const navigate = useNavigate();
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (novaSenha.length < 6) {
+      showToast("error", "A senha deve ter ao menos 6 caracteres.");
+      return;
+    }
+    if (novaSenha !== confirm) {
+      showToast("error", "As senhas precisam ser iguais.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await resetPassword(token, novaSenha);
+      showToast("success", "Senha redefinida. Faça login com a nova senha.");
+      navigate("/login");
+    } catch {
+      showToast("error", "Link inválido ou expirado. Solicite um novo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!token) {
+    return (
+      <main className="route-fade mx-auto max-w-md px-4 py-10">
+        <PageHeader title="Redefinir senha" description="Link inválido." />
+        <Card>
+          <p className="text-sm text-brown-mid">
+            Este link não é válido. Solicite um novo em <Link to="/esqueci-senha" className="font-bold text-primary">Esqueci minha senha</Link>.
+          </p>
+        </Card>
+      </main>
+    );
+  }
+
+  return (
+    <main className="route-fade mx-auto max-w-md px-4 py-10">
+      <PageHeader title="Redefinir senha" description="Escolha uma nova senha de acesso." />
+      <Card>
+        <form className="grid gap-4" onSubmit={submit}>
+          <Input label="Nova senha" type="password" value={novaSenha} onChange={(event) => setNovaSenha(event.target.value)} required />
+          <Input label="Confirmar nova senha" type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
+          <Button loading={loading}>Salvar nova senha</Button>
+        </form>
       </Card>
     </main>
   );

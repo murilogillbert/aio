@@ -57,17 +57,19 @@ enum CostType {
 }
 
 model User {
-  id                       String                     @id @default(uuid())
+  id                       String                    @id @default(uuid())
   fullName                 String
-  email                    String                     @unique
+  email                    String                    @unique
   passwordHash             String
-  phone                    String                     @default("")
-  createdAt                DateTime                   @default(now())
+  phone                    String                    @default("")
+  isActive                 Boolean                   @default(true)
+  createdAt                DateTime                  @default(now())
   patient                  Patient?
   professional             Professional?
   employee                 Employee?
   userRoles                UserRole[]
   refreshTokens            RefreshToken[]
+  passwordResetTokens      PasswordResetToken[]
   conversationParticipants ConversationParticipant[]
 }
 
@@ -80,6 +82,18 @@ model RefreshToken {
   createdAt           DateTime  @default(now())
   revokedAt           DateTime?
   replacedByTokenHash String?
+
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId, expiresAt])
 }
@@ -100,20 +114,35 @@ model UserRole {
 }
 
 model Patient {
-  id            String         @id @default(uuid())
-  userId        String         @unique
-  user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  birthDate     DateTime?      @db.Date
-  cpf           String         @default("")
-  address       String         @default("")
-  city          String         @default("")
-  state         String         @default("")
-  postalCode    String         @default("")
-  notes         String         @default("")
-  isActive      Boolean        @default(true)
-  dependents    Dependent[]
-  appointments  Appointment[]
-  medicalRecord MedicalRecord?
+  id              String         @id @default(uuid())
+  userId          String         @unique
+  user            User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  birthDate       DateTime?      @db.Date
+  cpf             String         @default("")
+  address         String         @default("")
+  city            String         @default("")
+  state           String         @default("")
+  postalCode      String         @default("")
+  notes           String         @default("")
+  isActive        Boolean        @default(true)
+  dependents      Dependent[]
+  appointments    Appointment[]
+  medicalRecord   MedicalRecord?
+  cards           PatientCard[]
+  asaasCustomerId String?
+}
+
+model PatientCard {
+  id              String   @id @default(uuid())
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  asaasCustomerId String
+  cardToken       String
+  brand           String   @default("")
+  last4           String   @default("")
+  expiryMonth     Int?
+  expiryYear      Int?
+  createdAt       DateTime @default(now())
 }
 
 model Dependent {
@@ -193,21 +222,21 @@ model Employee {
 }
 
 model Service {
-  id                   String                 @id @default(uuid())
+  id                   String                @id @default(uuid())
   name                 String
-  shortDescription     String                 @default("")
-  description          String                 @default("")
-  preparation          String                 @default("")
-  color                String                 @default("#C2410C")
-  durationMinutes      Int                    @default(60)
-  basePrice            Decimal                @default(0) @db.Decimal(12, 2)
-  requiresRoom         Boolean                @default(false)
+  shortDescription     String                @default("")
+  description          String                @default("")
+  preparation          String                @default("")
+  color                String                @default("#C2410C")
+  durationMinutes      Int                   @default(60)
+  basePrice            Decimal               @default(0) @db.Decimal(12, 2)
+  requiresRoom         Boolean               @default(false)
   defaultRoomId        String?
-  defaultRoom          Room?                  @relation(fields: [defaultRoomId], references: [id], onDelete: Restrict)
-  onlineBooking        Boolean                @default(true)
-  showPrice            Boolean                @default(true)
-  showDuration         Boolean                @default(true)
-  isActive             Boolean                @default(true)
+  defaultRoom          Room?                 @relation(fields: [defaultRoomId], references: [id], onDelete: Restrict)
+  onlineBooking        Boolean               @default(true)
+  showPrice            Boolean               @default(true)
+  showDuration         Boolean               @default(true)
+  isActive             Boolean               @default(true)
   serviceCategories    ServiceCategory[]
   professionalServices ProfessionalService[]
   roomServices         RoomService[]
@@ -284,16 +313,16 @@ model RoomService {
 }
 
 model Equipment {
-  id                    String                  @id @default(uuid())
+  id                    String                 @id @default(uuid())
   name                  String
-  category              String                  @default("")
-  quantity              Int                     @default(0)
-  unitValue             Decimal                 @default(0) @db.Decimal(12, 2)
-  serialNumber          String                  @default("")
-  location              String                  @default("")
-  status                EquipmentStatus         @default(Operacional)
-  maintenanceDate       DateTime?               @db.Date
-  isActive              Boolean                 @default(true)
+  category              String                 @default("")
+  quantity              Int                    @default(0)
+  unitValue             Decimal                @default(0) @db.Decimal(12, 2)
+  serialNumber          String                 @default("")
+  location              String                 @default("")
+  status                EquipmentStatus        @default(Operacional)
+  maintenanceDate       DateTime?              @db.Date
+  isActive              Boolean                @default(true)
   roomEquipments        RoomEquipment[]
   serviceEquipments     ServiceEquipment[]
   appointmentEquipments AppointmentEquipment[]
@@ -317,7 +346,7 @@ model Appointment {
   professionalId      String
   professional        Professional           @relation(fields: [professionalId], references: [id], onDelete: Restrict)
   serviceId           String
-  service              Service                @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  service             Service                @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   roomId              String?
   room                Room?                  @relation(fields: [roomId], references: [id], onDelete: Restrict)
   planId              String?
@@ -361,9 +390,9 @@ model AppointmentStatusLog {
 }
 
 model Conversation {
-  id           String                     @id @default(uuid())
-  title        String                     @default("")
-  channel      ChannelKind                @default(Aplicacao)
+  id           String                    @id @default(uuid())
+  title        String                    @default("")
+  channel      ChannelKind               @default(Aplicacao)
   participants ConversationParticipant[]
   messages     Message[]
 }
@@ -407,10 +436,10 @@ model NotificationRule {
 }
 
 model MessageTemplate {
-  id                String              @id @default(uuid())
-  occasion          String              @default("")
-  channel           String              @default("")
-  body              String              @default("")
+  id                String             @id @default(uuid())
+  occasion          String             @default("")
+  channel           String             @default("")
+  body              String             @default("")
   notificationRules NotificationRule[]
 }
 
@@ -435,11 +464,11 @@ model PlanService {
 }
 
 model JobOpening {
-  id           String            @id @default(uuid())
+  id           String           @id @default(uuid())
   title        String
-  department   String            @default("")
-  description  String            @default("")
-  status       String            @default("")
+  department   String           @default("")
+  description  String           @default("")
+  status       String           @default("")
   applications JobApplication[]
 }
 
@@ -509,12 +538,16 @@ model Cost {
 }
 
 model Payment {
-  id            String      @id @default(uuid())
-  appointmentId String      @unique
-  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
-  grossAmount   Decimal     @default(0) @db.Decimal(12, 2)
-  method        String      @default("")
-  paidAt        DateTime    @default(now())
+  id             String      @id @default(uuid())
+  appointmentId  String      @unique
+  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  grossAmount    Decimal     @default(0) @db.Decimal(12, 2)
+  method         String      @default("")
+  methodDetail   String?
+  billingType    String      @default("MANUAL")
+  asaasPaymentId String?
+  status         String      @default("CONFIRMED")
+  paidAt         DateTime    @default(now())
 }
 
 model Commission {
@@ -558,23 +591,23 @@ model MovementLog {
 }
 
 model MedicalRecord {
-  id                  String               @id @default(uuid())
-  patientId           String               @unique
-  patient             Patient              @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  bloodType           String               @default("")
-  allergies           String               @default("")
-  chronicConditions   String               @default("")
-  currentMedications  String               @default("")
-  familyHistory       String               @default("")
-  surgicalHistory      String               @default("")
-  habits              String               @default("")
-  heightCm            Decimal?             @db.Decimal(5, 2)
-  weightKg            Decimal?             @db.Decimal(5, 2)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime?
-  updatedByUserId     String?
-  sessionNotes        SessionNote[]
-  attachments         MedicalAttachment[]
+  id                 String              @id @default(uuid())
+  patientId          String              @unique
+  patient            Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  bloodType          String              @default("")
+  allergies          String              @default("")
+  chronicConditions  String              @default("")
+  currentMedications String              @default("")
+  familyHistory      String              @default("")
+  surgicalHistory    String              @default("")
+  habits             String              @default("")
+  heightCm           Decimal?            @db.Decimal(5, 2)
+  weightKg           Decimal?            @db.Decimal(5, 2)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime?
+  updatedByUserId    String?
+  sessionNotes       SessionNote[]
+  attachments        MedicalAttachment[]
 }
 
 model SessionNote {
@@ -612,11 +645,11 @@ model MedicalAttachment {
 }
 
 model Clinic {
-  id      String @id @default(uuid())
-  name    String @default("")
-  cnpj    String @default("")
-  email   String @default("")
-  phone   String @default("")
+  id    String @id @default(uuid())
+  name  String @default("")
+  cnpj  String @default("")
+  email String @default("")
+  phone String @default("")
 
   gmailClientId       String?
   gmailClientSecret   String?
@@ -644,24 +677,30 @@ model Clinic {
   waAppSecret     String?
   waConnected     Boolean @default(false)
 
-  smtpHost        String?
-  smtpPort        Int?
-  smtpUsername    String?
-  smtpPassword    String?
-  smtpFrom        String?
-  smtpConnected   Boolean @default(false)
+  smtpHost      String?
+  smtpPort      Int?
+  smtpUsername  String?
+  smtpPassword  String?
+  smtpFrom      String?
+  smtpConnected Boolean @default(false)
 
-  resendApiKey      String?
-  resendFromEmail   String?
-  resendFromName    String?
-  resendConnected   Boolean @default(false)
+  resendApiKey    String?
+  resendFromEmail String?
+  resendFromName  String?
+  resendConnected Boolean @default(false)
 
-  igAccountId    String?
-  igPageId       String?
-  igAccessToken  String?
-  igAppSecret    String?
-  igVerifyToken  String?
-  igConnected    Boolean @default(false)
+  asaasApiKey              String?
+  asaasEnvironment         String  @default("sandbox")
+  asaasWebhookToken        String?
+  asaasConnected           Boolean @default(false)
+  paymentRequiredAtBooking Boolean @default(false)
+
+  igAccountId   String?
+  igPageId      String?
+  igAccessToken String?
+  igAppSecret   String?
+  igVerifyToken String?
+  igConnected   Boolean @default(false)
 
   remindersEnabled Boolean   @default(true)
   createdAt        DateTime  @default(now())

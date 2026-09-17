@@ -8,6 +8,7 @@ export const buildSafeUser = async (userId: string) => {
     where: { id: userId },
     include: {
       userRoles: { include: { role: true } },
+      professional: true,
       patient: {
         include: {
           dependents: true,
@@ -25,6 +26,10 @@ export const buildSafeUser = async (userId: string) => {
     email: user.email,
     phone: user.phone,
     role,
+    professionalId: user.professional?.id,
+    bio: user.professional?.bio,
+    specialty: user.professional?.specialty,
+    photoUrl: user.professional?.photoUrl,
   };
 
   if (!user.patient) return base;

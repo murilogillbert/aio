@@ -18,6 +18,8 @@ import { AdminServiceEditor } from "./AdminServiceEditor";
 const fieldSets: Record<string, AdminCrudField[]> = {
   profissionais: [
     { key: "name", label: "Nome" },
+    { key: "email", label: "Email de acesso (login)" },
+    { key: "phone", label: "Telefone" },
     { key: "specialty", label: "Especialidade" },
     { key: "bio", label: "Bio", type: "textarea" },
     { key: "photoUrl", label: "Foto URL" },
@@ -74,11 +76,6 @@ const fieldSets: Record<string, AdminCrudField[]> = {
     { key: "name", label: "Nome do canal" },
     { key: "participantRule", label: "Regra de participantes" },
   ],
-  integracoes: [
-    { key: "name", label: "Nome" },
-    { key: "status", label: "Status", type: "select", options: ["mock", "conectado", "desconectado"] },
-    { key: "description", label: "Descricao", type: "textarea" },
-  ],
   banners: [
     { key: "title", label: "Titulo" },
     { key: "subtitle", label: "Subtitulo", type: "textarea" },
@@ -93,6 +90,13 @@ const fieldSets: Record<string, AdminCrudField[]> = {
     { key: "month", label: "Mes" },
     { key: "type", label: "Tipo", type: "select", options: ["fixo", "variavel"] },
     { key: "value", label: "Valor", type: "number" },
+  ],
+  usuarios: [
+    { key: "fullName", label: "Nome" },
+    { key: "email", label: "Email de acesso (login)" },
+    { key: "phone", label: "Telefone" },
+    { key: "role", label: "Papel", type: "select", options: ["paciente", "recepcao", "admin"] },
+    { key: "isActive", label: "Ativo", type: "select", options: ["true", "false"] },
   ],
   movimento: [
     { key: "eventType", label: "Tipo de evento" },
@@ -143,7 +147,8 @@ function AdminCrudPage({
     try {
       if (editing) await updateAdminCrud(resource, editing.id, draft);
       else await createAdminCrud(resource, draft);
-      showToast("success", "Registro salvo.");
+      const createsAccount = !editing && (resource === "profissionais" || resource === "usuarios");
+      showToast("success", createsAccount ? "Conta criada — email de boas-vindas enviado." : "Registro salvo.");
       setEditing(null);
       setDraft({});
       await load();
@@ -236,6 +241,16 @@ export function AdminProfessionals() {
 
 export function AdminServices() {
   return <AdminServiceEditor />;
+}
+
+export function AdminUsers() {
+  return (
+    <AdminCrudPage
+      resource="usuarios"
+      title="Usuários & papéis"
+      description="Criar, editar papel e desativar contas de paciente, recepção e admin. Profissionais são criados na tela 'Profissionais e equipe' (cria também o perfil operacional). Novas contas recebem senha padrão 123456 e um email para definir a senha própria."
+    />
+  );
 }
 
 export function AdminRecruitment() {

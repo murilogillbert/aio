@@ -29,6 +29,7 @@ export type ClinicConfig = {
   messageTemplates: unknown[];
   notificationRules: unknown[];
   integrations: unknown[];
+  paymentRequiredAtBooking: boolean;
 };
 
 const SETTING_KEYS = [
@@ -63,7 +64,7 @@ export const buildClinicConfig = async (): Promise<ClinicConfig> => {
   const map = new Map(settings.map((setting) => [setting.key, setting.value]));
   const get = (key: string, fallback = "") => map.get(key) ?? fallback;
 
-  const [banners, milestones, mvv, gallery, templates, rules, integrationSettings] = await Promise.all([
+  const [banners, milestones, mvv, gallery, templates, rules, integrationSettings, clinic] = await Promise.all([
     prisma.banner.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.historicMilestone.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.missionVisionValue.findFirst(),
@@ -71,6 +72,7 @@ export const buildClinicConfig = async (): Promise<ClinicConfig> => {
     prisma.messageTemplate.findMany(),
     prisma.notificationRule.findMany(),
     prisma.appSetting.findMany({ where: { valueType: "integration" } }),
+    prisma.clinic.findFirst(),
   ]);
 
   const integrations = integrationSettings.length
@@ -125,6 +127,7 @@ export const buildClinicConfig = async (): Promise<ClinicConfig> => {
       active: r.active,
     })),
     integrations,
+    paymentRequiredAtBooking: clinic?.paymentRequiredAtBooking ?? false,
   };
 };
 

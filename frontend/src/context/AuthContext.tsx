@@ -11,6 +11,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<SafeUser>;
   register: (payload: { fullName: string; email: string; phone: string; password: string }) => Promise<SafeUser>;
   logout: () => void;
+  updateUser: (next: SafeUser) => void;
   isAuthenticated: boolean;
 };
 
@@ -65,9 +66,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("aio-auth");
   }, []);
 
+  const updateUser = useCallback(
+    (next: SafeUser) => {
+      setUser(next);
+      if (token) localStorage.setItem("aio-auth", JSON.stringify({ user: next, token, refreshToken }));
+    },
+    [token, refreshToken],
+  );
+
   const value = useMemo(
-    () => ({ user, token, refreshToken, login, register, logout, isAuthenticated: Boolean(user && token) }),
-    [user, token, refreshToken, login, register, logout],
+    () => ({ user, token, refreshToken, login, register, logout, updateUser, isAuthenticated: Boolean(user && token) }),
+    [user, token, refreshToken, login, register, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

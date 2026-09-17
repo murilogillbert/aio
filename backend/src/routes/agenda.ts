@@ -4,6 +4,7 @@ import { asyncHandler } from "../lib/asyncHandler.js";
 import { requireAuth } from "../middleware/auth.js";
 import { badRequest } from "../lib/httpError.js";
 import { addDays, addMinutesToTime, dateOnly, dateOnlyString, toMinutes } from "../lib/datetime.js";
+import { notifyAppointmentCreated } from "../lib/notifications.js";
 
 const router = Router();
 
@@ -98,6 +99,8 @@ router.post(
         statusLogs: { create: { status: "Agendado" } },
       },
     });
+
+    await notifyAppointmentCreated(appointment.id);
 
     res.json({
       id: appointment.id,

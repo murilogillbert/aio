@@ -25,14 +25,16 @@ import { ServicoDetail, ServicosList } from "./pages/public/Servicos";
 import { ProfissionalDetail, ProfissionaisList } from "./pages/public/Profissionais";
 import { Sobre } from "./pages/public/Sobre";
 import { Vagas } from "./pages/public/Vagas";
-import { Login, Cadastro } from "./pages/public/AuthPages";
+import { Login, Cadastro, ForgotPassword, ResetPassword } from "./pages/public/AuthPages";
 import { Agendamento } from "./pages/public/Agendamento";
 import { Forbidden, NotFound } from "./pages/public/StatusPages";
 import {
   PatientAppointments,
   PatientDashboard,
   PatientDependents,
+  PatientDocuments,
   PatientMessages,
+  PatientPayment,
   PatientProfile,
 } from "./pages/patient/PatientPages";
 import {
@@ -40,6 +42,8 @@ import {
   ProfessionalDashboard,
   ProfessionalMessages,
   ProfessionalMetrics,
+  ProfessionalPatients,
+  ProfessionalProfile,
 } from "./pages/professional/ProfessionalPages";
 import {
   ProfessionalMedicalRecordPage,
@@ -64,6 +68,7 @@ import {
   AdminRecruitment,
   AdminServices,
   AdminSimpleConfig,
+  AdminUsers,
 } from "./pages/admin/AdminPages";
 import { AdminIntegrations } from "./pages/admin/AdminIntegrations";
 import {
@@ -97,14 +102,18 @@ const patientLinks: SidebarLink[] = [
   { to: "/minha-conta/agendamentos", label: "Agendamentos", icon: <CalendarDays className="h-4 w-4" /> },
   { to: "/minha-conta/dependentes", label: "Dependentes", icon: <UsersRound className="h-4 w-4" /> },
   { to: "/minha-conta/mensagens", label: "Mensagens", icon: <MessageCircle className="h-4 w-4" /> },
+  { to: "/minha-conta/documentos", label: "Documentos", icon: <ClipboardList className="h-4 w-4" /> },
+  { to: "/minha-conta/pagamento", label: "Pagamento", icon: <ReceiptText className="h-4 w-4" /> },
   { to: "/minha-conta/perfil", label: "Perfil", icon: <UserRound className="h-4 w-4" /> },
 ];
 
 const professionalLinks: SidebarLink[] = [
   { to: "/profissional", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
   { to: "/profissional/agenda", label: "Agenda", icon: <CalendarDays className="h-4 w-4" /> },
+  { to: "/profissional/pacientes", label: "Pacientes", icon: <UserRound className="h-4 w-4" /> },
   { to: "/profissional/metricas", label: "Métricas", icon: <BarChart3 className="h-4 w-4" /> },
   { to: "/profissional/mensagens", label: "Mensagens", icon: <MessageCircle className="h-4 w-4" /> },
+  { to: "/profissional/perfil", label: "Perfil", icon: <UserRound className="h-4 w-4" /> },
 ];
 
 const receptionLinks: SidebarLink[] = [
@@ -118,6 +127,7 @@ const receptionLinks: SidebarLink[] = [
 
 const adminLinks: SidebarLink[] = [
   { to: "/admin", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { to: "/admin/usuarios", label: "Usuários & papéis", icon: <UserRound className="h-4 w-4" /> },
   { to: "/admin/profissionais", label: "Profissionais", icon: <UsersRound className="h-4 w-4" /> },
   { to: "/admin/servicos", label: "Serviços", icon: <Stethoscope className="h-4 w-4" /> },
   { to: "/admin/recrutamento", label: "Recrutamento", icon: <BriefcaseBusiness className="h-4 w-4" /> },
@@ -143,6 +153,8 @@ export default function App() {
         <Route path="/vagas" element={<Vagas />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
+        <Route path="/esqueci-senha" element={<ForgotPassword />} />
+        <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="/agendar" element={<Agendamento />} />
         <Route path="/403" element={<Forbidden />} />
       </Route>
@@ -153,6 +165,8 @@ export default function App() {
           <Route path="/minha-conta/agendamentos" element={<PatientAppointments />} />
           <Route path="/minha-conta/dependentes" element={<PatientDependents />} />
           <Route path="/minha-conta/mensagens" element={<PatientMessages />} />
+          <Route path="/minha-conta/documentos" element={<PatientDocuments />} />
+          <Route path="/minha-conta/pagamento" element={<PatientPayment />} />
           <Route path="/minha-conta/perfil" element={<PatientProfile />} />
         </Route>
       </Route>
@@ -161,8 +175,10 @@ export default function App() {
         <Route element={<InternalLayout links={professionalLinks} title="Portal profissional" />}>
           <Route path="/profissional" element={<ProfessionalDashboard />} />
           <Route path="/profissional/agenda" element={<ProfessionalAgenda />} />
+          <Route path="/profissional/pacientes" element={<ProfessionalPatients />} />
           <Route path="/profissional/metricas" element={<ProfessionalMetrics />} />
           <Route path="/profissional/mensagens" element={<ProfessionalMessages />} />
+          <Route path="/profissional/perfil" element={<ProfessionalProfile />} />
           <Route path="/profissional/pacientes/:patientId/prontuario" element={<ProfessionalMedicalRecordPage />} />
           <Route path="/profissional/agendamentos/:appointmentId/evolucao" element={<SessionNoteEditorPage />} />
         </Route>
@@ -183,6 +199,7 @@ export default function App() {
       <Route element={<RequireRole role="admin" />}>
         <Route element={<InternalLayout links={adminLinks} title="Administração" />}>
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/usuarios" element={<AdminUsers />} />
           <Route path="/admin/profissionais" element={<AdminProfessionals />} />
           <Route path="/admin/servicos" element={<AdminServices />} />
           <Route path="/admin/recrutamento" element={<AdminRecruitment />} />

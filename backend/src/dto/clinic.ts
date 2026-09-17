@@ -1,4 +1,5 @@
 import { prisma } from "../db.js";
+import { sendEmail } from "../lib/email.js";
 
 export const getOrCreateClinic = async () => {
   const existing = await prisma.clinic.findFirst();
@@ -50,6 +51,11 @@ export const buildIntegrationsDto = (clinic: Awaited<ReturnType<typeof getOrCrea
     fromName: clinic.resendFromName ?? null,
     connected: clinic.resendConnected,
   },
+  asaas: {
+    apiKeyMasked: mask(clinic.asaasApiKey),
+    environment: clinic.asaasEnvironment,
+    connected: clinic.asaasConnected,
+  },
   smtp: {
     host: clinic.smtpHost ?? null,
     port: clinic.smtpPort ?? null,
@@ -67,6 +73,7 @@ export const buildIntegrationsDto = (clinic: Awaited<ReturnType<typeof getOrCrea
     connected: clinic.igConnected,
   },
   remindersEnabled: clinic.remindersEnabled,
+  paymentRequiredAtBooking: clinic.paymentRequiredAtBooking,
 });
 
 type IntegrationsPatch = Partial<{
@@ -75,9 +82,11 @@ type IntegrationsPatch = Partial<{
   whatsApp: Partial<{ phoneNumberId: string; wabaId: string; accessToken: string; verifyToken: string; appSecret: string }>;
   mercadoPago: Partial<{ accessTokenProd: string; accessTokenSandbox: string; publicKey: string; sandboxMode: boolean }>;
   resend: Partial<{ apiKey: string; fromEmail: string; fromName: string }>;
+  asaas: Partial<{ apiKey: string; environment: string }>;
   smtp: Partial<{ host: string; port: number; username: string; password: string; from: string }>;
   instagram: Partial<{ accountId: string; pageId: string; accessToken: string; appSecret: string; verifyToken: string }>;
   remindersEnabled: boolean;
+  paymentRequiredAtBooking: boolean;
 }>;
 
 const patchField = (current: string | null, incoming: string | undefined): string | null | undefined => {
@@ -158,7 +167,15 @@ export const applyIntegrationsPatch = async (patch: IntegrationsPatch) => {
     if (verifyToken !== undefined) data.igVerifyToken = verifyToken;
     if ([accountId, pageId, accessToken, appSecret, verifyToken].some((v) => v !== undefined)) data.igConnected = false;
   }
+  if (patch.asaas) {
+    const apiKey = patchField(clinic.asaasApiKey, patch.asaas.apiKey);
+    const { environment } = patch.asaas;
+    if (apiKey !== undefined) data.asaasApiKey = apiKey;
+    if (environment !== undefined) data.asaasEnvironment = environment;
+    if ([apiKey, environment].some((v) => v !== undefined)) data.asaasConnected = false;
+  }
   if (patch.remindersEnabled !== undefined) data.remindersEnabled = patch.remindersEnabled;
+  if (patch.paymentRequiredAtBooking !== undefined) data.paymentRequiredAtBooking = patch.paymentRequiredAtBooking;
 
   data.updatedAt = new Date();
   const updated = await prisma.clinic.update({ where: { id: clinic.id }, data });
@@ -219,9 +236,18 @@ export const testIntegration = async (type: string, payload: Record<string, unkn
       }
       if (!clinic.resendApiKey.startsWith("re_")) return { ok: false, message: "API Key não parece válida (esperado prefixo re_)." };
       const testEmail = payload.testEmail as string | undefined;
-      if (testEmail && !isValidEmail(testEmail)) return { ok: false, message: "Email de teste inválido." };
+      if (!testEmail || !isValidEmail(testEmail)) return { ok: false, message: "Informe um email de teste válido." };
+      const result = await sendEmail({
+        to: testEmail,
+        subject: "Teste de integração — AIO",
+        html: "<p>Este é um email de teste da integração Resend configurada no painel administrativo.</p>",
+      });
+      if (!result.ok) {
+        await prisma.clinic.update({ where: { id: clinic.id }, data: { resendConnected: false } });
+        return { ok: false, message: `Falha ao enviar email de teste: ${result.error}` };
+      }
       await prisma.clinic.update({ where: { id: clinic.id }, data: { resendConnected: true } });
-      return { ok: true, message: "Resend conectado com sucesso." };
+      return { ok: true, message: `Email de teste enviado para ${testEmail}.` };
     }
     case "smtp": {
       if (
@@ -238,6 +264,23 @@ export const testIntegration = async (type: string, payload: Record<string, unkn
       }
       await prisma.clinic.update({ where: { id: clinic.id }, data: { smtpConnected: true } });
       return { ok: true, message: "SMTP conectado com sucesso." };
+    }
+    case "asaas": {
+      if (!clinic.asaasApiKey) return { ok: false, message: "Configure a API Key antes de testar." };
+      const base = clinic.asaasEnvironment === "production" ? "https://api.asaas.com/v3" : "https://api-sandbox.asaas.com/v3";
+      try {
+        const response = await fetch(`${base}/customers?limit=1`, {
+          headers: { access_token: clinic.asaasApiKey, "Content-Type": "application/json" },
+        });
+        if (!response.ok) {
+          await prisma.clinic.update({ where: { id: clinic.id }, data: { asaasConnected: false } });
+          return { ok: false, message: `Asaas respondeu ${response.status}. Verifique a API Key e o ambiente (sandbox/produção).` };
+        }
+        await prisma.clinic.update({ where: { id: clinic.id }, data: { asaasConnected: true } });
+        return { ok: true, message: `Conectado ao Asaas (${clinic.asaasEnvironment === "production" ? "produção" : "sandbox"}).` };
+      } catch (error) {
+        return { ok: false, message: error instanceof Error ? error.message : "Falha ao conectar ao Asaas." };
+      }
     }
     case "instagram": {
       if (!clinic.igAccountId || !clinic.igPageId || !clinic.igAccessToken) {

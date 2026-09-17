@@ -811,12 +811,17 @@ function PaymentModal({ appointment, services, onClose, onPaid }: { appointment:
   const service = services.find((entry) => entry.id === appointment.serviceId);
   const [amount, setAmount] = useState((service?.priceFrom ?? 0).toString());
   const [method, setMethod] = useState("PIX");
+  const [methodDetail, setMethodDetail] = useState("");
   const [paying, setPaying] = useState(false);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (method === "Outro" && !methodDetail.trim()) {
+      showToast("error", "Especifique a forma de pagamento.");
+      return;
+    }
     setPaying(true);
     try {
-      const result = await payAppointment(appointment.id, Number(amount), method);
+      const result = await payAppointment(appointment.id, Number(amount), method, methodDetail.trim() || undefined);
       showToast("success", `${result.message} Comissão ${currency(result.commissionAmount)} (${result.commissionPct.toFixed(1)}%)`);
       await onPaid();
     } catch {
@@ -830,13 +835,20 @@ function PaymentModal({ appointment, services, onClose, onPaid }: { appointment:
       <form className="grid gap-3" onSubmit={submit}>
         <p className="text-sm text-brown-mid">{appointment.patientName} · {appointment.serviceName}</p>
         <Input label="Valor (R$)" type="number" step="0.01" min={0} value={amount} onChange={(event) => setAmount(event.target.value)} />
-        <Select label="Método" value={method} onChange={(event) => setMethod(event.target.value)}>
+        <Select label="Método" value={method} onChange={(event) => { setMethod(event.target.value); setMethodDetail(""); }}>
           <option>PIX</option>
           <option>Cartão de crédito</option>
           <option>Cartão de débito</option>
           <option>Dinheiro</option>
-          <option>Mercado Pago</option>
+          <option>Convênio</option>
+          <option>Outro</option>
         </Select>
+        {method === "Convênio" ? (
+          <Input label="Convênio" placeholder="Nome do convênio/plano" value={methodDetail} onChange={(event) => setMethodDetail(event.target.value)} />
+        ) : null}
+        {method === "Outro" ? (
+          <Input label="Especifique" value={methodDetail} onChange={(event) => setMethodDetail(event.target.value)} required />
+        ) : null}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button loading={paying}>Confirmar pagamento</Button>

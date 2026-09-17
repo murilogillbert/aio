@@ -9,6 +9,7 @@ import type {
   BookingDraft,
   ClinicConfig,
   Cost,
+  Dependent,
   IntegrationsDto,
   IntegrationsPatch,
   Job,
@@ -122,6 +123,31 @@ export const refreshToken = (refreshTokenValue: string) =>
     body: JSON.stringify({ refreshToken: refreshTokenValue }),
   });
 
+export const forgotPassword = (email: string) =>
+  request<{ ok: boolean }>("/auth/esqueci-senha", { method: "POST", body: JSON.stringify({ email }) });
+
+export const resetPassword = (token: string, novaSenha: string) =>
+  request<{ ok: boolean }>("/auth/redefinir-senha", { method: "POST", body: JSON.stringify({ token, novaSenha }) });
+
+export const changePassword = (senhaAtual: string, novaSenha: string) =>
+  request<{ ok: boolean }>("/auth/senha", { method: "PATCH", body: JSON.stringify({ senhaAtual, novaSenha }) });
+
+export const getMe = () => request<Omit<User, "password">>("/auth/me");
+
+export const updateMe = (body: { fullName?: string; phone?: string; bio?: string; specialty?: string; photoUrl?: string }) =>
+  request<Omit<User, "password">>("/auth/me", { method: "PATCH", body: JSON.stringify(body) });
+
+export const uploadFile = async (file: File): Promise<{ url: string }> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const token = getToken();
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE_URL}/uploads`, { method: "POST", body: formData, headers });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+};
+
 export const getMetricasGerais = (_periodo = "6m") => request<MetricsPoint[]>("/metricas");
 
 export const getMetricBreakdowns = () =>
@@ -177,7 +203,7 @@ export const getClinicIntegrations = () => request<IntegrationsDto>("/admin/clin
 export const updateClinicIntegrations = (patch: IntegrationsPatch) =>
   request<IntegrationsDto>("/admin/clinica/integracoes", { method: "PUT", body: JSON.stringify(patch) });
 
-export type IntegrationType = "gmail" | "pubsub" | "whatsapp" | "mercadopago" | "resend" | "smtp" | "instagram";
+export type IntegrationType = "gmail" | "pubsub" | "whatsapp" | "mercadopago" | "resend" | "asaas" | "smtp" | "instagram";
 export const testIntegration = (type: IntegrationType, payload?: Record<string, unknown>) =>
   request<TestResult>(`/admin/clinica/integracoes/${type}/test`, {
     method: "POST",
@@ -188,6 +214,8 @@ export const testIntegration = (type: IntegrationType, payload?: Record<string, 
 export const getDashboard = (periodo = "30d") => request<MetricsDashboard>(`/metricas/dashboard?periodo=${periodo}`);
 export const getFaturamento = (periodo = "30d") => request<MetricsFaturamento>(`/metricas/faturamento?periodo=${periodo}`);
 export const getProfessionalMetrics = (periodo = "30d") => request<ProfessionalMetric[]>(`/metricas/profissionais?periodo=${periodo}`);
+export const getMyProfessionalMetrics = (periodo = "30d", offset = 0) =>
+  request<ProfessionalMetric | null>(`/metricas/profissionais/me?periodo=${periodo}&offset=${offset}`);
 export const getServiceMetrics = (periodo = "30d") => request<ServiceMetric[]>(`/metricas/servicos?periodo=${periodo}`);
 export const getMovimento = (data?: string) => request<MetricsMovimento>(`/metricas/movimento${data ? `?data=${data}` : ""}`);
 
@@ -211,10 +239,10 @@ export const deleteFutureAppointments = (id: string) =>
   request<{ count: number; message: string }>(`/agendamentos/${id}/futuros`, { method: "DELETE" });
 export const checkinAppointment = (id: string) =>
   request<{ ok: boolean; message: string }>(`/agendamentos/${id}/checkin`, { method: "POST" });
-export const payAppointment = (id: string, amount: number, method: string, paidBeforeCompletion = false) =>
+export const payAppointment = (id: string, amount: number, method: string, methodDetail?: string, paidBeforeCompletion = false) =>
   request<{ paymentId: string; commissionAmount: number; commissionPct: number; message: string }>(`/agendamentos/${id}/pagamento`, {
     method: "POST",
-    body: JSON.stringify({ amount, method, paidBeforeCompletion }),
+    body: JSON.stringify({ amount, method, methodDetail, paidBeforeCompletion }),
   });
 
 // ─── Patients ───────────────────────────────────────────────────────────────
@@ -267,3 +295,50 @@ export const createMedicalAttachment = (patientId: string, body: MedicalAttachme
   request<MedicalAttachment>(`/prontuarios/pacientes/${patientId}/anexos`, { method: "POST", body: JSON.stringify(body) });
 export const deleteMedicalAttachment = (id: string) =>
   request<void>(`/prontuarios/anexos/${id}`, { method: "DELETE" });
+
+// ─── Meus pacientes (profissional) ──────────────────────────────────────────
+export const listMyPatients = () => request<{ id: string; fullName: string }[]>("/pacientes/meus");
+
+// ─── Documentos do paciente ─────────────────────────────────────────────────
+export type PatientDocument = { id: string; title: string; fileUrl: string; fileType: string; createdAt: string };
+export const listMyDocuments = () => request<PatientDocument[]>("/documentos");
+
+// ─── Dependentes (self-service do paciente) ─────────────────────────────────
+export const createDependent = (body: { fullName: string; birthDate: string; relationship?: string }) =>
+  request<Dependent>("/dependentes", { method: "POST", body: JSON.stringify(body) });
+export const updateDependent = (id: string, body: { fullName?: string; birthDate?: string; relationship?: string }) =>
+  request<Dependent>(`/dependentes/${id}`, { method: "PUT", body: JSON.stringify(body) });
+export const deleteDependent = (id: string) => request<void>(`/dependentes/${id}`, { method: "DELETE" });
+
+// ─── Pagamento online (Asaas) ────────────────────────────────────────────────
+export type SavedCard = { id: string; brand: string; last4: string; expiryMonth: number | null; expiryYear: number | null };
+export type PixCheckout = { encodedImage: string; payload: string; expirationDate: string };
+export type CheckoutResult = { status: string; pix?: PixCheckout; paymentId?: string };
+export type CardInput = { holderName: string; number: string; expiryMonth: string; expiryYear: string; ccv: string; cpfCnpj: string; postalCode: string; addressNumber: string; phone: string };
+
+export const listSavedCards = () => request<SavedCard[]>("/pagamentos/cartoes");
+export const deleteSavedCard = (id: string) => request<void>(`/pagamentos/cartoes/${id}`, { method: "DELETE" });
+export const checkoutPix = (appointmentId: string) =>
+  request<CheckoutResult>("/pagamentos/checkout", { method: "POST", body: JSON.stringify({ appointmentId, method: "PIX" }) });
+export const checkoutCard = (appointmentId: string, options: { card?: CardInput; savedCardId?: string; saveCard?: boolean }) =>
+  request<CheckoutResult>("/pagamentos/checkout", { method: "POST", body: JSON.stringify({ appointmentId, method: "CARTAO", ...options }) });
+export const getPaymentStatus = (appointmentId: string) => request<{ status: string | null }>(`/pagamentos/${appointmentId}/status`);
+
+// ─── Mensageria (chat) ────────────────────────────────────────────────────
+export type ConversationSummary = {
+  id: string;
+  title: string;
+  participants: { id: string; fullName: string; role: string }[];
+  lastMessage: { body: string; sentAt: string; authorName: string } | null;
+};
+export type ChatMessage = { id: string; authorUserId: string | null; authorName: string; body: string; sentAt: string; mine: boolean };
+export type MessageRecipient = { id: string; fullName: string; role: string };
+
+export const listConversations = () => request<ConversationSummary[]>("/conversas");
+export const listMessageRecipients = () => request<MessageRecipient[]>("/conversas/destinatarios");
+export const createConversation = (participantUserIds: string[], title?: string) =>
+  request<ConversationSummary>("/conversas", { method: "POST", body: JSON.stringify({ participantUserIds, title }) });
+export const listConversationMessages = (conversationId: string) =>
+  request<ChatMessage[]>(`/conversas/${conversationId}/mensagens`);
+export const sendConversationMessage = (conversationId: string, body: string) =>
+  request<ChatMessage>(`/conversas/${conversationId}/mensagens`, { method: "POST", body: JSON.stringify({ body }) });

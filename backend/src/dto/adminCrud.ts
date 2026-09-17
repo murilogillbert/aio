@@ -1,7 +1,36 @@
-import { randomUUID } from "node:crypto";
 import { prisma } from "../db.js";
-import { badRequest, notFound } from "../lib/httpError.js";
+import { badRequest, conflict, notFound } from "../lib/httpError.js";
 import { naiveDate } from "../lib/datetime.js";
+import { hashPassword } from "../lib/password.js";
+import { issuePasswordResetToken, sendPasswordResetEmail } from "../lib/passwordReset.js";
+
+const DEFAULT_PASSWORD = "123456";
+const ASSIGNABLE_ROLES = ["paciente", "profissional", "recepcao", "admin"] as const;
+
+// Cria o User vinculado com a senha padrão e dispara o email de "defina sua senha".
+// Reaproveitado pela criação de profissionais e pela gestão de usuários/papéis do admin.
+const createUserAccount = async (params: { fullName: string; email: string; phone: string; roleName: string }) => {
+  const existing = await prisma.user.findUnique({ where: { email: params.email } });
+  if (existing) throw conflict("Já existe uma conta com este email.");
+
+  const role = await prisma.role.findUnique({ where: { name: params.roleName } });
+  if (!role) throw badRequest(`Papel '${params.roleName}' não configurado.`);
+
+  const passwordHash = await hashPassword(DEFAULT_PASSWORD);
+  const user = await prisma.user.create({
+    data: {
+      fullName: params.fullName,
+      email: params.email,
+      phone: params.phone,
+      passwordHash,
+      userRoles: { create: { roleId: role.id } },
+    },
+  });
+
+  const token = await issuePasswordResetToken(user.id);
+  await sendPasswordResetEmail({ email: user.email, fullName: user.fullName, token, welcome: true });
+  return user;
+};
 
 export type AdminCrudItem = { id: string; title: string; subtitle: string; status: string; fields: Record<string, string> };
 
@@ -40,6 +69,8 @@ const handlers: Record<string, ResourceHandler> = {
         status: p.providesCare ? "atende" : "administrativo",
         fields: {
           name: p.name,
+          email: p.email,
+          phone: p.phone,
           specialty: p.specialty,
           bio: p.bio,
           photoUrl: p.photoUrl,
@@ -50,9 +81,17 @@ const handlers: Record<string, ResourceHandler> = {
       }));
     },
     async create(fields) {
+      const email = str(fields, "email");
+      if (!email) throw badRequest("Informe o email de acesso do profissional.");
+      const name = str(fields, "name");
+      const phone = str(fields, "phone");
+      const user = await createUserAccount({ fullName: name, email, phone, roleName: "profissional" });
       const created = await prisma.professional.create({
         data: {
-          name: str(fields, "name"),
+          userId: user.id,
+          name,
+          email,
+          phone,
           specialty: str(fields, "specialty"),
           bio: str(fields, "bio"),
           photoUrl: str(fields, "photoUrl"),
@@ -64,10 +103,23 @@ const handlers: Record<string, ResourceHandler> = {
       return (await handlers.profissionais.list()).find((item) => item.id === created.id)!;
     },
     async update(id, fields) {
+      const name = str(fields, "name");
+      const email = str(fields, "email");
+      const phone = str(fields, "phone");
+      const existing = await prisma.professional.findUnique({ where: { id } });
+      if (!existing) throw notFound("Profissional não encontrado.");
+
+      if (existing.userId && email && email !== existing.email) {
+        const emailTaken = await prisma.user.findUnique({ where: { email } });
+        if (emailTaken && emailTaken.id !== existing.userId) throw conflict("Este email já está em uso.");
+      }
+
       await prisma.professional.update({
         where: { id },
         data: {
-          name: str(fields, "name"),
+          name,
+          email,
+          phone,
           specialty: str(fields, "specialty"),
           bio: str(fields, "bio"),
           photoUrl: str(fields, "photoUrl"),
@@ -76,9 +128,15 @@ const handlers: Record<string, ResourceHandler> = {
           providesCare: boolVal(fields, "providesCare", true),
         },
       });
+
+      if (existing.userId) {
+        await prisma.user.update({ where: { id: existing.userId }, data: { fullName: name, email: email || undefined, phone } });
+      }
     },
     async remove(id) {
+      const existing = await prisma.professional.findUnique({ where: { id } });
       await prisma.professional.delete({ where: { id } });
+      if (existing?.userId) await prisma.user.update({ where: { id: existing.userId }, data: { isActive: false } });
     },
   },
 
@@ -396,30 +454,6 @@ const handlers: Record<string, ResourceHandler> = {
     },
   },
 
-  integracoes: {
-    async list() {
-      const rows = await prisma.appSetting.findMany({ where: { valueType: "integration" } });
-      return rows.map((setting) => {
-        const parsed = JSON.parse(setting.value) as { name: string; status: string; description: string };
-        return { id: setting.id, title: parsed.name, subtitle: parsed.description, status: parsed.status, fields: parsed as unknown as Record<string, string> };
-      });
-    },
-    async create(fields) {
-      const payload = { name: str(fields, "name"), status: str(fields, "status", "mock"), description: str(fields, "description") };
-      const created = await prisma.appSetting.create({
-        data: { key: `integration.${randomUUID()}`, value: JSON.stringify(payload), valueType: "integration" },
-      });
-      return { id: created.id, title: payload.name, subtitle: payload.description, status: payload.status, fields: payload };
-    },
-    async update(id, fields) {
-      const payload = { name: str(fields, "name"), status: str(fields, "status", "mock"), description: str(fields, "description") };
-      await prisma.appSetting.update({ where: { id }, data: { value: JSON.stringify(payload) } });
-    },
-    async remove(id) {
-      await prisma.appSetting.delete({ where: { id } });
-    },
-  },
-
   banners: {
     async list() {
       const rows = await prisma.banner.findMany({ orderBy: { sortOrder: "asc" } });
@@ -507,6 +541,54 @@ const handlers: Record<string, ResourceHandler> = {
     },
     async remove(id) {
       await prisma.cost.delete({ where: { id } });
+    },
+  },
+
+  usuarios: {
+    async list() {
+      const rows = await prisma.user.findMany({
+        include: { userRoles: { include: { role: true } } },
+        orderBy: { fullName: "asc" },
+      });
+      return rows.map((u) => {
+        const role = u.userRoles[0]?.role.name ?? "";
+        return {
+          id: u.id,
+          title: u.fullName,
+          subtitle: `${u.email} · ${role}`,
+          status: u.isActive ? "ativo" : "inativo",
+          fields: { fullName: u.fullName, email: u.email, phone: u.phone, role, isActive: String(u.isActive) },
+        };
+      });
+    },
+    async create(fields) {
+      const fullName = str(fields, "fullName");
+      const email = str(fields, "email");
+      const role = str(fields, "role", "recepcao");
+      if (!fullName || !email) throw badRequest("Informe nome e email.");
+      if (!(ASSIGNABLE_ROLES as readonly string[]).includes(role)) throw badRequest("Papel inválido.");
+      const user = await createUserAccount({ fullName, email, phone: str(fields, "phone"), roleName: role });
+      if (role === "paciente") await prisma.patient.create({ data: { userId: user.id } });
+      return (await handlers.usuarios.list()).find((item) => item.id === user.id)!;
+    },
+    async update(id, fields) {
+      const isActive = boolVal(fields, "isActive", true);
+      await prisma.user.update({
+        where: { id },
+        data: { fullName: str(fields, "fullName"), phone: str(fields, "phone"), isActive },
+      });
+      const role = str(fields, "role");
+      if (role && (ASSIGNABLE_ROLES as readonly string[]).includes(role)) {
+        const roleRow = await prisma.role.findUnique({ where: { name: role } });
+        if (roleRow) {
+          await prisma.userRole.deleteMany({ where: { userId: id } });
+          await prisma.userRole.create({ data: { userId: id, roleId: roleRow.id } });
+        }
+      }
+    },
+    async remove(id) {
+      // Soft delete — evita quebrar vínculos (agendamentos, prontuários etc.) via onDelete: Restrict.
+      await prisma.user.update({ where: { id }, data: { isActive: false } });
     },
   },
 

@@ -2,9 +2,11 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button, Card, Select } from "../../components/ui";
 import { PageHeader } from "../../components/Page";
+import { PaymentCheckout } from "../../components/PaymentCheckout";
 import { getAgenda, getProfissionais, getServicos, criarAgendamento } from "../../services/api";
 import type { AgendaSlot, BookingDraft, Professional, Service } from "../../types";
 import { useAuth } from "../../context/AuthContext";
+import { useConfig } from "../../context/ConfigContext";
 import { useToast } from "../../context/ToastContext";
 import { currency, dateLabel } from "../../utils";
 
@@ -18,7 +20,9 @@ export function Agendamento() {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [slots, setSlots] = useState<AgendaSlot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
   const { user, isAuthenticated } = useAuth();
+  const { config } = useConfig();
   const { showToast } = useToast();
   const [draft, setDraft] = useState<BookingDraft>(() => {
     const stored = localStorage.getItem(draftKey);
@@ -46,10 +50,15 @@ export function Agendamento() {
   }, [draft]);
 
   const selectedService = services.find((service) => service.id === draft.serviceId);
+  const selectedProfessional = professionals.find((professional) => professional.id === draft.professionalId);
   const professionalOptions = useMemo(() => {
     if (!selectedService) return professionals;
     return professionals.filter((professional) => selectedService.professionalIds.includes(professional.id));
   }, [professionals, selectedService]);
+  const serviceOptions = useMemo(() => {
+    if (!selectedProfessional) return services;
+    return services.filter((service) => selectedProfessional.services.includes(service.id));
+  }, [services, selectedProfessional]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -63,12 +72,31 @@ export function Agendamento() {
       return;
     }
     setLoading(true);
-    await criarAgendamento({ ...draft, patientId: user.id });
+    const created = await criarAgendamento({ ...draft, patientId: user.id });
     localStorage.removeItem(draftKey);
-    showToast("success", "Agendamento criado.");
     setLoading(false);
+    if (config.paymentRequiredAtBooking) {
+      setPendingPaymentId(created.id);
+      return;
+    }
+    showToast("success", "Agendamento criado.");
     navigate("/minha-conta/agendamentos");
   };
+
+  if (pendingPaymentId) {
+    return (
+      <main className="route-fade mx-auto max-w-lg px-4 py-8">
+        <PageHeader title="Pagamento" description="Conclua o pagamento para confirmar seu agendamento." />
+        <PaymentCheckout
+          appointmentId={pendingPaymentId}
+          onPaid={() => {
+            showToast("success", "Agendamento confirmado.");
+            navigate("/minha-conta/agendamentos");
+          }}
+        />
+      </main>
+    );
+  }
 
   const selectedSlots = slots.filter((slot) => (draft.date ? slot.date === draft.date : true));
   const uniqueDates = Array.from(new Set(slots.map((slot) => slot.date))).slice(0, 10);
@@ -78,13 +106,22 @@ export function Agendamento() {
       <PageHeader title="Agendar" description="Escolha serviço, profissional e horário. Se precisar entrar na conta, o fluxo continua deste ponto." />
       <form className="grid gap-4 lg:grid-cols-[1fr_320px]" onSubmit={submit}>
         <Card className="grid gap-4">
-          <Select label="Serviço" value={draft.serviceId ?? ""} onChange={(event) => setDraft({ ...draft, serviceId: event.target.value, professionalId: undefined })} required>
-            <option value="">Selecione</option>
-            {services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
-          </Select>
-          <Select label="Profissional" value={draft.professionalId ?? ""} onChange={(event) => setDraft({ ...draft, professionalId: event.target.value, date: undefined, time: undefined })} required>
-            <option value="">Selecione</option>
+          <Select
+            label="Profissional"
+            value={draft.professionalId ?? ""}
+            onChange={(event) => {
+              const professionalId = event.target.value || undefined;
+              const nextProfessional = professionals.find((professional) => professional.id === professionalId);
+              const serviceStillValid = nextProfessional && draft.serviceId ? nextProfessional.services.includes(draft.serviceId) : true;
+              setDraft({ ...draft, professionalId, serviceId: serviceStillValid ? draft.serviceId : undefined, date: undefined, time: undefined });
+            }}
+          >
+            <option value="">Todos</option>
             {professionalOptions.map((professional) => <option key={professional.id} value={professional.id}>{professional.name}</option>)}
+          </Select>
+          <Select label="Serviço" value={draft.serviceId ?? ""} onChange={(event) => setDraft({ ...draft, serviceId: event.target.value })} required>
+            <option value="">Selecione</option>
+            {serviceOptions.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
           </Select>
           <Select label="Data" value={draft.date ?? ""} onChange={(event) => setDraft({ ...draft, date: event.target.value, time: undefined })} required>
             <option value="">Selecione</option>

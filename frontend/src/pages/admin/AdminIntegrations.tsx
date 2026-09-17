@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, ChevronDown, Copy, Eye, EyeOff, Mail, MessageCircle, CreditCard, Cloud, Send, Instagram } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Copy, Eye, EyeOff, Mail, MessageCircle, CreditCard, Cloud, Send, Instagram, Wallet } from "lucide-react";
 import { Badge, Button, Card, Input, Skeleton } from "../../components/ui";
 import { PageHeader } from "../../components/Page";
 import { useToast } from "../../context/ToastContext";
@@ -119,6 +119,7 @@ export function AdminIntegrations() {
   const [whatsapp, setWhatsapp] = useState({ phoneNumberId: "", wabaId: "", accessToken: "", verifyToken: "", appSecret: "" });
   const [mp, setMp] = useState({ accessTokenProd: "", accessTokenSandbox: "", publicKey: "", sandboxMode: true });
   const [resend, setResend] = useState({ apiKey: "", fromEmail: "", fromName: "", testEmail: "" });
+  const [asaas, setAsaas] = useState({ apiKey: "", environment: "sandbox" });
   const [smtp, setSmtp] = useState({ host: "", port: "", username: "", password: "", from: "" });
   const [ig, setIg] = useState({ accountId: "", pageId: "", accessToken: "", appSecret: "", verifyToken: "" });
 
@@ -134,6 +135,7 @@ export function AdminIntegrations() {
       setWhatsapp({ phoneNumberId: next.whatsApp.phoneNumberId ?? "", wabaId: next.whatsApp.wabaId ?? "", accessToken: "", verifyToken: "", appSecret: "" });
       setMp({ accessTokenProd: "", accessTokenSandbox: "", publicKey: next.mercadoPago.publicKey ?? "", sandboxMode: next.mercadoPago.sandboxMode });
       setResend({ apiKey: "", fromEmail: next.resend.fromEmail ?? "", fromName: next.resend.fromName ?? "", testEmail: "" });
+      setAsaas({ apiKey: "", environment: next.asaas.environment });
       setSmtp({ host: next.smtp.host ?? "", port: next.smtp.port?.toString() ?? "", username: next.smtp.username ?? "", password: "", from: next.smtp.from ?? "" });
       setIg({ accountId: next.instagram.accountId ?? "", pageId: next.instagram.pageId ?? "", accessToken: "", appSecret: "", verifyToken: "" });
     } finally {
@@ -284,6 +286,44 @@ export function AdminIntegrations() {
             <Button variant="secondary" onClick={() => void test("resend", { testEmail: resend.testEmail })}>Verificar + e-mail de teste</Button>
           </div>
         </Section>
+
+        <Section icon={<Wallet className="h-5 w-5" />} title="Asaas" description="Pagamento online do site: Pix, cartão de crédito e cartão salvo do paciente." status={statusOf(data.asaas.connected, Boolean(data.asaas.apiKeyMasked))}>
+          <InstructionBox steps={[
+            "Crie uma conta em sandbox.asaas.com para testar sem transações reais",
+            "No painel Asaas, gere uma API Key (Integrações > API)",
+            "Cole a chave abaixo e escolha o ambiente (sandbox ou produção)",
+            "Cadastre a URL de webhook abaixo no Asaas com um token de autenticação forte",
+            "Tokenização de cartão funciona direto em sandbox; em produção precisa ser liberada pelo gerente de conta Asaas",
+          ]} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <SensitiveField label="API Key" value={asaas.apiKey} onChange={(v) => setAsaas({ ...asaas, apiKey: v })} masked={data.asaas.apiKeyMasked} placeholder="$aact_..." />
+            <label className="grid gap-2 text-sm font-medium text-brown-dark">
+              <span>Ambiente</span>
+              <select
+                className="min-h-11 rounded-lg border border-brown-mid/25 bg-surface px-3 py-2 text-brown-dark shadow-sm"
+                value={asaas.environment}
+                onChange={(event) => setAsaas({ ...asaas, environment: event.target.value })}
+              >
+                <option value="sandbox">Sandbox (testes)</option>
+                <option value="production">Produção</option>
+              </select>
+            </label>
+            <WebhookField label="URL do webhook" url={`${baseUrl}/webhooks/asaas`} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void save({ asaas: { apiKey: asaas.apiKey || "", environment: asaas.environment } }, "Asaas")}>Salvar</Button>
+            <Button variant="secondary" onClick={() => void test("asaas")}>Verificar</Button>
+          </div>
+        </Section>
+
+        <Card>
+          <h3 className="font-bold">Cobrança no agendamento</h3>
+          <p className="text-sm text-brown-mid">Quando ligado, o site exige pagamento (Pix ou cartão via Asaas) para concluir um novo agendamento público. Quando desligado (padrão), o pagamento continua opcional e pode ser resolvido pela recepção.</p>
+          <label className="mt-3 flex items-center gap-3 text-sm">
+            <input type="checkbox" checked={data.paymentRequiredAtBooking} onChange={(event) => void save({ paymentRequiredAtBooking: event.target.checked }, "Cobrança")} />
+            Exigir pagamento no momento do agendamento
+          </label>
+        </Card>
 
         <Section icon={<Send className="h-5 w-5 rotate-12" />} title="SMTP (fallback)" description="Servidor SMTP genérico caso o Resend não esteja disponível." status={statusOf(data.smtp.connected, Boolean(data.smtp.host))}>
           <div className="grid gap-3 md:grid-cols-2">

@@ -5,6 +5,8 @@ import { badRequest, conflict, unauthorized } from "../lib/httpError.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import { createAccessToken, createRefreshTokenValue, hashToken, refreshTokenExpiry } from "../lib/token.js";
 import { buildSafeUser, primaryRole } from "../dto/user.js";
+import { consumePasswordResetToken, issuePasswordResetToken, sendPasswordResetEmail } from "../lib/passwordReset.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -33,6 +35,7 @@ router.post(
       include: { userRoles: { include: { role: true } } },
     });
     if (!user) throw unauthorized("Credenciais inválidas.");
+    if (!user.isActive) throw unauthorized("Esta conta está desativada.");
 
     const valid = await verifyPassword(senha, user.passwordHash);
     if (!valid) throw unauthorized("Credenciais inválidas.");
@@ -98,6 +101,97 @@ router.post(
     });
 
     res.json(issued);
+  }),
+);
+
+router.post(
+  "/esqueci-senha",
+  asyncHandler(async (req, res) => {
+    const { email } = req.body as { email?: string };
+    if (!email) throw badRequest("Informe o email.");
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      const token = await issuePasswordResetToken(user.id);
+      await sendPasswordResetEmail({ email: user.email, fullName: user.fullName, token });
+    }
+    // Sempre responde OK — não revela se o email existe na base.
+    res.json({ ok: true });
+  }),
+);
+
+router.post(
+  "/redefinir-senha",
+  asyncHandler(async (req, res) => {
+    const { token, novaSenha } = req.body as { token?: string; novaSenha?: string };
+    if (!token || !novaSenha) throw badRequest("Informe o token e a nova senha.");
+    if (novaSenha.length < 6) throw badRequest("A senha deve ter ao menos 6 caracteres.");
+
+    const userId = await consumePasswordResetToken(token);
+    if (!userId) throw badRequest("Link inválido ou expirado. Solicite um novo.");
+
+    const passwordHash = await hashPassword(novaSenha);
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
+      prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
+
+    res.json({ ok: true });
+  }),
+);
+
+router.patch(
+  "/senha",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { senhaAtual, novaSenha } = req.body as { senhaAtual?: string; novaSenha?: string };
+    if (!senhaAtual || !novaSenha) throw badRequest("Informe a senha atual e a nova senha.");
+    if (novaSenha.length < 6) throw badRequest("A nova senha deve ter ao menos 6 caracteres.");
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) throw unauthorized();
+
+    const valid = await verifyPassword(senhaAtual, user.passwordHash);
+    if (!valid) throw badRequest("Senha atual incorreta.");
+
+    const passwordHash = await hashPassword(novaSenha);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    res.json({ ok: true });
+  }),
+);
+
+router.get(
+  "/me",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = await buildSafeUser(req.user!.id);
+    if (!user) throw unauthorized();
+    res.json(user);
+  }),
+);
+
+router.patch(
+  "/me",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const body = req.body as { fullName?: string; phone?: string; bio?: string; specialty?: string; photoUrl?: string };
+
+    if (body.fullName !== undefined || body.phone !== undefined) {
+      await prisma.user.update({
+        where: { id: req.user!.id },
+        data: { fullName: body.fullName, phone: body.phone },
+      });
+    }
+
+    if (req.user!.role === "profissional" && (body.bio !== undefined || body.specialty !== undefined || body.photoUrl !== undefined)) {
+      await prisma.professional.updateMany({
+        where: { userId: req.user!.id },
+        data: { bio: body.bio, specialty: body.specialty, photoUrl: body.photoUrl },
+      });
+    }
+
+    const user = await buildSafeUser(req.user!.id);
+    res.json(user);
   }),
 );
 

@@ -44,6 +44,7 @@ export type ClinicConfig = {
   messageTemplates: MessageTemplate[];
   notificationRules: NotificationRule[];
   integrations: Integration[];
+  paymentRequiredAtBooking: boolean;
 };
 
 export type Service = {
@@ -116,6 +117,10 @@ export type User = {
   password: string;
   phone: string;
   role: Role;
+  professionalId?: string;
+  bio?: string;
+  specialty?: string;
+  photoUrl?: string;
   dependents?: Dependent[];
   appointments?: Appointment[];
   conversations?: Conversation[];
@@ -291,9 +296,11 @@ export type IntegrationsDto = {
   whatsApp: { phoneNumberId: string | null; wabaId: string | null; accessTokenMasked: string | null; verifyTokenMasked: string | null; appSecretMasked: string | null; connected: boolean };
   mercadoPago: { accessTokenProdMasked: string | null; accessTokenSandboxMasked: string | null; publicKey: string | null; sandboxMode: boolean; connected: boolean };
   resend: { apiKeyMasked: string | null; fromEmail: string | null; fromName: string | null; connected: boolean };
+  asaas: { apiKeyMasked: string | null; environment: string; connected: boolean };
   smtp: { host: string | null; port: number | null; username: string | null; passwordMasked: string | null; from: string | null; connected: boolean };
   instagram: { accountId: string | null; pageId: string | null; accessTokenMasked: string | null; appSecretMasked: string | null; verifyTokenMasked: string | null; connected: boolean };
   remindersEnabled: boolean;
+  paymentRequiredAtBooking: boolean;
 };
 
 export type IntegrationsPatch = Partial<{
@@ -302,9 +309,11 @@ export type IntegrationsPatch = Partial<{
   whatsApp: Partial<{ phoneNumberId: string; wabaId: string; accessToken: string; verifyToken: string; appSecret: string }>;
   mercadoPago: Partial<{ accessTokenProd: string; accessTokenSandbox: string; publicKey: string; sandboxMode: boolean }>;
   resend: Partial<{ apiKey: string; fromEmail: string; fromName: string }>;
+  asaas: Partial<{ apiKey: string; environment: string }>;
   smtp: Partial<{ host: string; port: number; username: string; password: string; from: string }>;
   instagram: Partial<{ accountId: string; pageId: string; accessToken: string; appSecret: string; verifyToken: string }>;
   remindersEnabled: boolean;
+  paymentRequiredAtBooking: boolean;
 }>;
 
 export type TestResult = { ok: boolean; message: string; detail?: string | null };

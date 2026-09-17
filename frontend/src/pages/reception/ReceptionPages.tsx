@@ -1,9 +1,11 @@
-import { FormEvent, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Bell, CalendarCheck, Clock, Loader2, Plus, Search } from "lucide-react";
+import { FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Bell, CalendarCheck, Clock, Loader2, MessageCircle, Plus, Search } from "lucide-react";
 import { Badge, Button, Card, Input, Modal, Skeleton, Textarea } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
+import { ChatPanel } from "../../components/ChatPanel";
 import {
+  createConversation,
   createPatient,
   deletePatient,
   updatePatient,
@@ -119,6 +121,7 @@ const emptyPatient: PatientUpsert = {
 
 export function ReceptionPatients() {
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const { patients: items, loading, reload: load } = usePatientsSearch(search);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -197,6 +200,11 @@ export function ReceptionPatients() {
     }
   };
 
+  const message = async (patient: PatientRich) => {
+    await createConversation([patient.userId]);
+    navigate("/recepcao/mensagens");
+  };
+
   return (
     <>
       <PageHeader title="Pacientes" description="Cadastro com detecção de duplicidade por CPF, e-mail ou telefone." actions={<Button onClick={openCreate}><Plus className="h-4 w-4" />Novo paciente</Button>} />
@@ -227,6 +235,7 @@ export function ReceptionPatients() {
                 <Link to={`/recepcao/pacientes/${patient.id}/prontuario`}>
                   <Button variant="secondary">Prontuario</Button>
                 </Link>
+                <Button variant="secondary" onClick={() => void message(patient)}><MessageCircle className="h-4 w-4" />Mensagem</Button>
                 <Button variant="ghost" onClick={() => void remove(patient)}>Inativar</Button>
               </div>
             </Card>
@@ -292,31 +301,10 @@ export function ReceptionPatients() {
 // ─── Messages (lista mais real) ─────────────────────────────────────────────
 
 export function ReceptionMessages() {
-  // Por enquanto retorno do MovementLog com filtro de mensagens; substitui o array literal antigo.
-  const { movement: data } = useMovementMetrics();
-  const messageEvents = useMemo(() => data?.events.filter((event) => event.type === "MESSAGE_RECEIVED") ?? [], [data]);
   return (
     <>
-      <PageHeader title="Central de comunicação" description="Vista unificada de Aplicação, WhatsApp e e-mail. Mensagens lidas do MovementLog enquanto a integração não está conectada." />
-      <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
-        <div className="grid gap-2">
-          {messageEvents.length === 0 ? (
-            <Card>
-              <p className="text-sm text-brown-mid">Nenhuma mensagem registrada. Conecte uma integração em Configurações &gt; Integrações para começar a receber mensagens.</p>
-            </Card>
-          ) : messageEvents.map((event) => (
-            <Card key={event.id}>
-              <div className="flex items-center justify-between"><strong>{event.patient ?? "Desconhecido"}</strong><Badge>{event.type}</Badge></div>
-              <p className="mt-2 text-sm text-brown-mid">{event.description}</p>
-              <p className="mt-1 text-xs text-brown-mid">{new Date(event.createdAt).toLocaleString("pt-BR")}</p>
-            </Card>
-          ))}
-        </div>
-        <Card>
-          <h2 className="font-bold">Thread</h2>
-          <div className="mt-4 rounded-lg bg-bg-secondary p-3 text-sm text-brown-mid">Selecione uma conversa à esquerda. Quando a integração estiver conectada, as respostas voltarão automaticamente para o canal de origem.</div>
-        </Card>
-      </div>
+      <PageHeader title="Central de comunicação" description="Converse com pacientes, profissionais e administração." />
+      <ChatPanel />
     </>
   );
 }

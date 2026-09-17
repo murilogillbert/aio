@@ -4,17 +4,12 @@ import { asyncHandler } from "../lib/asyncHandler.js";
 import { requireAuth, requireRole, type AuthUser } from "../middleware/auth.js";
 import { badRequest, forbidden, notFound } from "../lib/httpError.js";
 import { toMedicalRecordDto, toSessionNoteDto } from "../dto/medicalRecord.js";
+import { myProfessionalId } from "../lib/actor.js";
 
 const router = Router();
 router.use(requireAuth, requireRole("admin", "recepcao", "profissional"));
 
 const isRestricted = (user: AuthUser) => user.role === "recepcao";
-
-const myProfessionalId = async (user: AuthUser): Promise<string | null> => {
-  if (user.role !== "profissional") return null;
-  const professional = await prisma.professional.findUnique({ where: { userId: user.id } });
-  return professional?.id ?? null;
-};
 
 const canAccessPatient = async (user: AuthUser, patientId: string): Promise<boolean> => {
   if (user.role === "admin" || user.role === "recepcao") return true;
@@ -265,6 +260,7 @@ router.get(
 
 router.post(
   "/pacientes/:patientId/anexos",
+  requireRole("admin", "profissional"),
   asyncHandler(async (req, res) => {
     const patient = await resolvePatient(req.params.patientId);
     if (!patient) throw notFound("Paciente não encontrado.");
@@ -297,9 +293,14 @@ router.post(
 
 router.delete(
   "/anexos/:id",
+  requireRole("admin", "profissional"),
   asyncHandler(async (req, res) => {
-    const attachment = await prisma.medicalAttachment.findUnique({ where: { id: req.params.id } });
+    const attachment = await prisma.medicalAttachment.findUnique({
+      where: { id: req.params.id },
+      include: { medicalRecord: true },
+    });
     if (!attachment) throw notFound("Anexo não encontrado.");
+    if (!(await canAccessPatient(req.user!, attachment.medicalRecord.patientId))) throw forbidden();
     await prisma.medicalAttachment.delete({ where: { id: attachment.id } });
     res.status(204).send();
   }),

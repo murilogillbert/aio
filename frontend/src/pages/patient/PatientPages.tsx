@@ -1,134 +1,401 @@
+import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarPlus, MessageCircle, UserPlus } from "lucide-react";
-import { Avatar, Badge, Button, Card, EmptyState, Input, Textarea } from "../../components/ui";
+import { CalendarPlus, CreditCard, FileText, MessageCircle, UserPlus } from "lucide-react";
+import { Avatar, Badge, Button, Card, EmptyState, Input, Modal, Skeleton } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
+import { ChatPanel } from "../../components/ChatPanel";
+import { PaymentCheckout } from "../../components/PaymentCheckout";
 import { useAuth } from "../../context/AuthContext";
-import { appointmentTitle, dateLabel } from "../../utils";
-import { useProfessionals, useServices } from "../../hooks/useCatalog";
+import { useToast } from "../../context/ToastContext";
+import { dateLabel } from "../../utils";
+import { useAppointmentsRange } from "../../hooks/useAppointments";
+import {
+  changePassword,
+  createDependent,
+  deleteDependent,
+  deleteSavedCard,
+  listMyDocuments,
+  listSavedCards,
+  patchAppointmentStatus,
+  updateAppointment,
+  updateDependent,
+  updateMe,
+} from "../../services/api";
+import type { SavedCard } from "../../services/api";
+import type { PatientDocument } from "../../services/api";
+import type { Dependent } from "../../types";
+
+const today = () => new Date().toISOString().slice(0, 10);
+const addDaysStr = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+};
 
 export function PatientDashboard() {
   const { user } = useAuth();
-  const upcoming = user?.appointments?.filter((item) => new Date(`${item.date}T12:00:00`) >= new Date("2026-05-20T12:00:00")) ?? [];
+  const { appointments } = useAppointmentsRange(addDaysStr(-30), addDaysStr(180));
+  const upcoming = appointments.filter((item) => new Date(item.startTime) >= new Date() && item.status !== "Cancelado");
+
   return (
     <>
       <PageHeader title="Minha conta" description="Próximas consultas, mensagens e atalhos." />
       <StatGrid>
         <StatCard label="Próximas consultas" value={String(upcoming.length)} hint="Titular e dependentes" />
         <StatCard label="Dependentes" value={String(user?.dependents?.length ?? 0)} />
-        <StatCard label="Mensagens" value={String(user?.conversations?.reduce((sum, item) => sum + item.unread, 0) ?? 0)} hint="Não lidas" />
+        <StatCard label="Conversas" value={String(user?.conversations?.length ?? 0)} />
         <StatCard label="Status" value="Ativo" hint="Cadastro validado" />
       </StatGrid>
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
+      <div className="mt-6 grid gap-4 md:grid-cols-4">
         <Link to="/agendar"><Button className="w-full"><CalendarPlus className="h-4 w-4" />Agendar</Button></Link>
         <Link to="/minha-conta/dependentes"><Button variant="secondary" className="w-full"><UserPlus className="h-4 w-4" />Dependentes</Button></Link>
         <Link to="/minha-conta/mensagens"><Button variant="secondary" className="w-full"><MessageCircle className="h-4 w-4" />Mensagens</Button></Link>
+        <Link to="/minha-conta/documentos"><Button variant="secondary" className="w-full"><FileText className="h-4 w-4" />Documentos</Button></Link>
       </div>
     </>
   );
 }
 
 export function PatientAppointments() {
-  const { user } = useAuth();
-  const appointments = user?.appointments ?? [];
-  const { services } = useServices();
-  const { professionals } = useProfessionals();
+  const { appointments, loading, reload } = useAppointmentsRange(addDaysStr(-365), addDaysStr(365));
+  const { showToast } = useToast();
+  const [rescheduling, setRescheduling] = useState<string | null>(null);
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [paying, setPaying] = useState<string | null>(null);
+
+  const cancel = async (id: string) => {
+    if (!window.confirm("Cancelar este agendamento?")) return;
+    try {
+      await patchAppointmentStatus(id, "Cancelado");
+      showToast("success", "Agendamento cancelado.");
+      await reload();
+    } catch {
+      showToast("error", "Não foi possível cancelar.");
+    }
+  };
+
+  const openReschedule = (id: string, startTime: string) => {
+    const date = new Date(startTime);
+    setRescheduling(id);
+    setNewDate(date.toISOString().slice(0, 10));
+    setNewTime(date.toISOString().slice(11, 16));
+  };
+
+  const submitReschedule = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!rescheduling) return;
+    setSaving(true);
+    try {
+      await updateAppointment(rescheduling, { startTime: `${newDate}T${newTime}:00.000Z` });
+      showToast("success", "Agendamento remarcado.");
+      setRescheduling(null);
+      await reload();
+    } catch {
+      showToast("error", "Horário indisponível. Escolha outro.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sorted = [...appointments].sort((a, b) => b.startTime.localeCompare(a.startTime));
 
   return (
     <>
       <PageHeader title="Agendamentos" description="Histórico, futuros e ações disponíveis conforme antecedência." actions={<Link to="/agendar"><Button>Novo agendamento</Button></Link>} />
-      <div className="grid gap-3">
-        {appointments.map((appointment) => (
-          <Card key={appointment.id}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="font-bold">{appointmentTitle(appointment, services, professionals)}</h2>
-                <p className="text-sm text-brown-mid">{dateLabel(appointment.date)} às {appointment.time}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge tone={appointment.status === "cancelado" ? "danger" : "success"}>{appointment.status}</Badge>
-                <Button variant="secondary">Remarcar</Button>
-                <Button variant="ghost">Cancelar</Button>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+      {loading ? (
+        <Skeleton className="h-40" />
+      ) : sorted.length === 0 ? (
+        <EmptyState title="Nenhum agendamento ainda." action={<Link to="/agendar"><Button>Agendar agora</Button></Link>} />
+      ) : (
+        <div className="grid gap-3">
+          {sorted.map((appointment) => {
+            const canManage = appointment.status !== "Cancelado" && appointment.status !== "Realizado" && new Date(appointment.startTime) > new Date();
+            return (
+              <Card key={appointment.id}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="font-bold">{appointment.serviceName} com {appointment.professionalName}</h2>
+                    <p className="text-sm text-brown-mid">{dateLabel(appointment.startTime.slice(0, 10))} às {appointment.startTime.slice(11, 16)}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone={appointment.status === "Cancelado" ? "danger" : appointment.status === "Realizado" ? "success" : "neutral"}>{appointment.status}</Badge>
+                    {appointment.paymentStatus !== "PAID" && appointment.status !== "Cancelado" ? (
+                      <Button variant="secondary" onClick={() => setPaying(appointment.id)}><CreditCard className="h-4 w-4" />Pagar</Button>
+                    ) : null}
+                    {canManage ? (
+                      <>
+                        <Button variant="secondary" onClick={() => openReschedule(appointment.id, appointment.startTime)}>Remarcar</Button>
+                        <Button variant="ghost" onClick={() => cancel(appointment.id)}>Cancelar</Button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      <Modal open={Boolean(rescheduling)} title="Remarcar agendamento" onClose={() => setRescheduling(null)}>
+        <form className="grid gap-4" onSubmit={submitReschedule}>
+          <Input label="Nova data" type="date" min={today()} value={newDate} onChange={(event) => setNewDate(event.target.value)} required />
+          <Input label="Novo horário" type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} required />
+          <Button loading={saving}>Confirmar nova data</Button>
+        </form>
+      </Modal>
+      <Modal open={Boolean(paying)} title="Pagar sessão" onClose={() => setPaying(null)}>
+        {paying ? (
+          <PaymentCheckout
+            appointmentId={paying}
+            onPaid={() => {
+              setPaying(null);
+              void reload();
+            }}
+          />
+        ) : null}
+      </Modal>
     </>
   );
 }
 
 export function PatientDependents() {
   const { user } = useAuth();
+  const { showToast } = useToast();
+  const [dependents, setDependents] = useState<Dependent[]>(user?.dependents ?? []);
+  const [editing, setEditing] = useState<Dependent | null>(null);
+  const [draft, setDraft] = useState({ fullName: "", birthDate: "", relationship: "" });
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const openForm = (dependent?: Dependent) => {
+    setEditing(dependent ?? null);
+    setDraft(dependent ? { fullName: dependent.fullName, birthDate: dependent.birthDate, relationship: dependent.relationship } : { fullName: "", birthDate: "", relationship: "" });
+    setOpen(true);
+  };
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      if (editing) {
+        const updated = await updateDependent(editing.id, draft);
+        setDependents((current) => current.map((d) => (d.id === editing.id ? updated : d)));
+      } else {
+        const created = await createDependent(draft);
+        setDependents((current) => [...current, created]);
+      }
+      showToast("success", "Dependente salvo.");
+      setOpen(false);
+    } catch {
+      showToast("error", "Não foi possível salvar o dependente.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (dependent: Dependent) => {
+    if (!window.confirm(`Remover ${dependent.fullName}?`)) return;
+    try {
+      await deleteDependent(dependent.id);
+      setDependents((current) => current.filter((d) => d.id !== dependent.id));
+      showToast("success", "Dependente removido.");
+    } catch {
+      showToast("error", "Não foi possível remover (verifique agendamentos vinculados).");
+    }
+  };
+
   return (
     <>
-      <PageHeader title="Dependentes" description="Gerencie pessoas vinculadas para escolher no agendamento." actions={<Button>Novo dependente</Button>} />
+      <PageHeader title="Dependentes" description="Gerencie pessoas vinculadas para escolher no agendamento." actions={<Button onClick={() => openForm()}>Novo dependente</Button>} />
       <div className="grid gap-3 md:grid-cols-2">
-        {user?.dependents?.map((dependent) => (
-          <Card key={dependent.id}>
-            <h2 className="font-bold">{dependent.fullName}</h2>
-            <p className="text-sm text-brown-mid">{dependent.relationship} · Nascimento {dateLabel(dependent.birthDate)}</p>
-            <div className="mt-4 flex gap-2"><Button variant="secondary">Editar</Button><Button variant="ghost">Remover</Button></div>
-          </Card>
-        )) ?? <EmptyState title="Nenhum dependente cadastrado." />}
+        {dependents.length === 0 ? (
+          <EmptyState title="Nenhum dependente cadastrado." />
+        ) : (
+          dependents.map((dependent) => (
+            <Card key={dependent.id}>
+              <h2 className="font-bold">{dependent.fullName}</h2>
+              <p className="text-sm text-brown-mid">{dependent.relationship || "Dependente"} · Nascimento {dateLabel(dependent.birthDate)}</p>
+              <div className="mt-4 flex gap-2">
+                <Button variant="secondary" onClick={() => openForm(dependent)}>Editar</Button>
+                <Button variant="ghost" onClick={() => remove(dependent)}>Remover</Button>
+              </div>
+            </Card>
+          ))
+        )}
       </div>
+      <Modal open={open} title={editing ? "Editar dependente" : "Novo dependente"} onClose={() => setOpen(false)}>
+        <form className="grid gap-4" onSubmit={save}>
+          <Input label="Nome completo" value={draft.fullName} onChange={(event) => setDraft({ ...draft, fullName: event.target.value })} required />
+          <Input label="Data de nascimento" type="date" value={draft.birthDate} onChange={(event) => setDraft({ ...draft, birthDate: event.target.value })} required />
+          <Input label="Relação" placeholder="Filho(a), cônjuge..." value={draft.relationship} onChange={(event) => setDraft({ ...draft, relationship: event.target.value })} />
+          <Button loading={saving}>Salvar</Button>
+        </form>
+      </Modal>
     </>
   );
 }
 
 export function PatientMessages() {
-  const { user } = useAuth();
-  const conversation = user?.conversations?.[0];
   return (
     <>
-      <PageHeader title="Mensagens" description="No mobile, lista e conversa podem ser usadas em telas separadas." />
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="grid gap-2">
-          {user?.conversations?.map((item) => (
-            <Card key={item.id}>
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="font-bold">{item.title}</h2>
-                <Badge>{item.channel}</Badge>
-              </div>
-              <p className="mt-1 text-xs text-brown-mid">{item.unread} não lidas</p>
+      <PageHeader title="Mensagens" description="Converse diretamente com a recepção." />
+      <ChatPanel />
+    </>
+  );
+}
+
+export function PatientDocuments() {
+  const [documents, setDocuments] = useState<PatientDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    listMyDocuments()
+      .then(setDocuments)
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <>
+      <PageHeader title="Documentos" description="Laudos e documentos enviados pelo seu profissional." />
+      {loading ? (
+        <Skeleton className="h-40" />
+      ) : documents.length === 0 ? (
+        <EmptyState title="Nenhum documento disponível ainda." />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {documents.map((document) => (
+            <Card key={document.id}>
+              <h2 className="font-bold">{document.title || "Documento"}</h2>
+              <p className="text-sm text-brown-mid">{dateLabel(document.createdAt.slice(0, 10))}</p>
+              <a href={document.fileUrl} target="_blank" rel="noreferrer">
+                <Button variant="secondary" className="mt-3">Abrir</Button>
+              </a>
             </Card>
           ))}
         </div>
-        <Card>
-          <h2 className="font-bold">{conversation?.title ?? "Conversa"}</h2>
-          <div className="mt-4 grid gap-3">
-            {conversation?.messages.map((message) => (
-              <div key={message.id} className="rounded-lg bg-bg-secondary p-3 text-sm">
-                <strong>{message.author}</strong>
-                <p className="mt-1 text-brown-mid">{message.text}</p>
+      )}
+    </>
+  );
+}
+
+export function PatientPayment() {
+  const [cards, setCards] = useState<SavedCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
+
+  const load = () => {
+    setLoading(true);
+    listSavedCards()
+      .then(setCards)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const remove = async (card: SavedCard) => {
+    if (!window.confirm(`Remover cartão •••• ${card.last4}?`)) return;
+    try {
+      await deleteSavedCard(card.id);
+      showToast("success", "Cartão removido.");
+      load();
+    } catch {
+      showToast("error", "Não foi possível remover.");
+    }
+  };
+
+  return (
+    <>
+      <PageHeader title="Formas de pagamento" description="Cartões salvos para pagar suas próximas sessões sem redigitar os dados. Um cartão é salvo ao marcar a opção durante um pagamento." />
+      {loading ? (
+        <Skeleton className="h-40" />
+      ) : cards.length === 0 ? (
+        <EmptyState title="Nenhum cartão salvo ainda." />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {cards.map((card) => (
+            <Card key={card.id}>
+              <div className="flex items-center gap-3">
+                <CreditCard className="h-6 w-6 text-primary" />
+                <div>
+                  <p className="font-bold">•••• •••• •••• {card.last4}</p>
+                  <p className="text-xs text-brown-mid">Validade {card.expiryMonth}/{card.expiryYear}</p>
+                </div>
               </div>
-            ))}
-          </div>
-          <Textarea label="Responder" className="mt-4" />
-          <Button className="mt-3">Enviar</Button>
-        </Card>
-      </div>
+              <Button variant="ghost" className="mt-3" onClick={() => void remove(card)}>Remover</Button>
+            </Card>
+          ))}
+        </div>
+      )}
     </>
   );
 }
 
 export function PatientProfile() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
+  const [form, setForm] = useState({ fullName: user?.fullName ?? "", phone: user?.phone ?? "" });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ atual: "", nova: "", confirmar: "" });
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  const saveProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    setSavingProfile(true);
+    try {
+      const updated = await updateMe({ fullName: form.fullName, phone: form.phone });
+      updateUser(updated);
+      showToast("success", "Perfil atualizado.");
+    } catch {
+      showToast("error", "Não foi possível salvar o perfil.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const savePassword = async (event: FormEvent) => {
+    event.preventDefault();
+    if (passwordForm.nova !== passwordForm.confirmar) {
+      showToast("error", "As senhas precisam ser iguais.");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await changePassword(passwordForm.atual, passwordForm.nova);
+      showToast("success", "Senha alterada.");
+      setPasswordForm({ atual: "", nova: "", confirmar: "" });
+    } catch {
+      showToast("error", "Senha atual incorreta.");
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   return (
     <>
       <PageHeader title="Perfil" description="Edite dados de contato e senha." />
-      <Card className="max-w-2xl">
-        <div className="mb-4 flex items-center gap-3">
-          <Avatar name={user?.fullName ?? "Paciente"} />
-          <div><h2 className="font-bold">{user?.fullName}</h2><p className="text-sm text-brown-mid">{user?.email}</p></div>
-        </div>
-        <div className="grid gap-4">
-          <Input label="Nome" defaultValue={user?.fullName} />
-          <Input label="E-mail" defaultValue={user?.email} />
-          <Input label="Celular" defaultValue={user?.phone} />
-          <Input label="Nova senha" type="password" />
-          <Button>Salvar alterações</Button>
-        </div>
-      </Card>
+      <div className="grid max-w-2xl gap-4">
+        <Card>
+          <div className="mb-4 flex items-center gap-3">
+            <Avatar name={user?.fullName ?? "Paciente"} />
+            <div><h2 className="font-bold">{user?.fullName}</h2><p className="text-sm text-brown-mid">{user?.email}</p></div>
+          </div>
+          <form className="grid gap-4" onSubmit={saveProfile}>
+            <Input label="Nome" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} />
+            <Input label="Celular" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+            <Button loading={savingProfile}>Salvar alterações</Button>
+          </form>
+        </Card>
+        <Card>
+          <h2 className="mb-4 font-bold">Alterar senha</h2>
+          <form className="grid gap-4" onSubmit={savePassword}>
+            <Input label="Senha atual" type="password" value={passwordForm.atual} onChange={(event) => setPasswordForm({ ...passwordForm, atual: event.target.value })} required />
+            <Input label="Nova senha" type="password" value={passwordForm.nova} onChange={(event) => setPasswordForm({ ...passwordForm, nova: event.target.value })} required />
+            <Input label="Confirmar nova senha" type="password" value={passwordForm.confirmar} onChange={(event) => setPasswordForm({ ...passwordForm, confirmar: event.target.value })} required />
+            <Button loading={savingPassword}>Alterar senha</Button>
+          </form>
+        </Card>
+      </div>
     </>
   );
 }

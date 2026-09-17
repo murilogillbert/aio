@@ -1,9 +1,11 @@
 import { Router } from "express";
+import type { Professional } from "@prisma/client";
 import { prisma } from "../db.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { combineIso, dateOnly, dateOnlyString, toMinutes } from "../lib/datetime.js";
 import { getPeriodRange, getPreviousRange, trend, type PeriodRange } from "../lib/period.js";
+import { myProfessionalId } from "../lib/actor.js";
 
 const router = Router();
 
@@ -295,6 +297,64 @@ router.get(
   }),
 );
 
+const computeProfessionalMetric = async (
+  professional: Professional,
+  range: PeriodRange,
+  firstDateByPatient: Map<string, Date | null>,
+) => {
+  const appointments = await prisma.appointment.findMany({
+    where: countAppointmentsInRange(range, { professionalId: professional.id }),
+    include: { service: true, payment: true },
+  });
+  const commissions = await prisma.commission.findMany({
+    where: { professionalId: professional.id, appointment: countAppointmentsInRange(range) },
+  });
+
+  const completedCount = appointments.filter((a) => a.status === "Realizado").length;
+  const cancelledCount = appointments.filter((a) => a.status === "Cancelado").length;
+  const noShowCount = appointments.filter((a) => a.status === "NaoCompareceu").length;
+  const revenue = appointments.reduce((sum, a) => sum + (a.payment ? Number(a.payment.grossAmount) : 0), 0);
+  const netPayout = commissions.reduce((sum, c) => sum + Number(c.amount), 0);
+  const minutesWorked = appointments
+    .filter((a) => a.status !== "Cancelado")
+    .reduce((sum, a) => sum + a.service.durationMinutes, 0);
+  const occupancy = Math.min(100, Math.round((minutesWorked / estimateAvailableMinutes(range.days)) * 10000) / 100);
+
+  const patientIds = [...new Set(appointments.map((a) => a.patientId))];
+  let newPatients = 0;
+  patientIds.forEach((patientId) => {
+    const firstDate = firstDateByPatient.get(patientId);
+    if (firstDate && firstDate >= range.start && firstDate < range.end) newPatients += 1;
+  });
+
+  const cancellationRate = appointments.length > 0 ? Math.round((cancelledCount / appointments.length) * 10000) / 100 : 0;
+  const status = cancellationRate > 30 ? "critico" : cancellationRate > 15 ? "atencao" : trend(0, revenue) === 100 && revenue > 0 ? "destaque" : "estavel";
+
+  return {
+    professionalId: professional.id,
+    name: professional.name,
+    specialty: professional.specialty,
+    appointments: appointments.length,
+    completedCount,
+    cancelledCount,
+    noShowCount,
+    occupancy,
+    revenue,
+    netPayout,
+    commissionPct:
+      commissions.length > 0
+        ? Math.round((commissions.reduce((sum, c) => sum + Number(c.percent), 0) / commissions.length) * 100) / 100
+        : Number(professional.defaultCommissionPercent),
+    ticket: completedCount > 0 ? Math.round((revenue / completedCount) * 100) / 100 : 0,
+    cancellationRate,
+    newPatients,
+    returningPatients: patientIds.length - newPatients,
+    rating: 4.8,
+    revenueTrend: trend(0, revenue),
+    status,
+  };
+};
+
 router.get(
   "/profissionais",
   requireAuth,
@@ -306,65 +366,30 @@ router.get(
     const firstDateByPatient = new Map(firstDates.map((row) => [row.patientId, row._min.date]));
 
     const result = await Promise.all(
-      professionals.map(async (professional) => {
-        const appointments = await prisma.appointment.findMany({
-          where: countAppointmentsInRange(range, { professionalId: professional.id }),
-          include: { service: true, payment: true },
-        });
-        const commissions = await prisma.commission.findMany({
-          where: { professionalId: professional.id, appointment: countAppointmentsInRange(range) },
-        });
-
-        const completedCount = appointments.filter((a) => a.status === "Realizado").length;
-        const cancelledCount = appointments.filter((a) => a.status === "Cancelado").length;
-        const noShowCount = appointments.filter((a) => a.status === "NaoCompareceu").length;
-        const revenue = appointments.reduce((sum, a) => sum + (a.payment ? Number(a.payment.grossAmount) : 0), 0);
-        const netPayout = commissions.reduce((sum, c) => sum + Number(c.amount), 0);
-        const minutesWorked = appointments
-          .filter((a) => a.status !== "Cancelado")
-          .reduce((sum, a) => sum + a.service.durationMinutes, 0);
-        const occupancy = Math.min(
-          100,
-          Math.round((minutesWorked / estimateAvailableMinutes(range.days)) * 10000) / 100,
-        );
-
-        const patientIds = [...new Set(appointments.map((a) => a.patientId))];
-        let newPatients = 0;
-        patientIds.forEach((patientId) => {
-          const firstDate = firstDateByPatient.get(patientId);
-          if (firstDate && firstDate >= range.start && firstDate < range.end) newPatients += 1;
-        });
-
-        const cancellationRate = appointments.length > 0 ? Math.round((cancelledCount / appointments.length) * 10000) / 100 : 0;
-        const status = cancellationRate > 30 ? "critico" : cancellationRate > 15 ? "atencao" : trend(0, revenue) === 100 && revenue > 0 ? "destaque" : "estavel";
-
-        return {
-          professionalId: professional.id,
-          name: professional.name,
-          specialty: professional.specialty,
-          appointments: appointments.length,
-          completedCount,
-          cancelledCount,
-          noShowCount,
-          occupancy,
-          revenue,
-          netPayout,
-          commissionPct:
-            commissions.length > 0
-              ? Math.round((commissions.reduce((sum, c) => sum + Number(c.percent), 0) / commissions.length) * 100) / 100
-              : Number(professional.defaultCommissionPercent),
-          ticket: completedCount > 0 ? Math.round((revenue / completedCount) * 100) / 100 : 0,
-          cancellationRate,
-          newPatients,
-          returningPatients: patientIds.length - newPatients,
-          rating: 4.8,
-          revenueTrend: trend(0, revenue),
-          status,
-        };
-      }),
+      professionals.map((professional) => computeProfessionalMetric(professional, range, firstDateByPatient)),
     );
 
     res.json(result);
+  }),
+);
+
+router.get(
+  "/profissionais/me",
+  requireAuth,
+  requireRole("profissional"),
+  asyncHandler(async (req, res) => {
+    const professionalId = await myProfessionalId(req.user!);
+    if (!professionalId) return res.json(null);
+
+    const professional = await prisma.professional.findUnique({ where: { id: professionalId } });
+    if (!professional) return res.json(null);
+
+    const offset = Number(req.query.offset ?? 0) || 0;
+    const range = getPeriodRange(req.query.periodo as string | undefined, offset);
+    const firstDates = await firstAppointmentDates();
+    const firstDateByPatient = new Map(firstDates.map((row) => [row.patientId, row._min.date]));
+
+    res.json(await computeProfessionalMetric(professional, range, firstDateByPatient));
   }),
 );
 

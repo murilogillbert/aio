@@ -149,4 +149,5 @@ export const defaultConfig: ClinicConfig = {
       description: "Mensagens transacionais e conversas operacionais.",
     },
   ],
+  paymentRequiredAtBooking: false,
 };

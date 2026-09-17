@@ -5,6 +5,7 @@ import { Badge, Button, Card, EmptyState, Input, Modal, Skeleton, Textarea } fro
 import { PageHeader } from "../../components/Page";
 import { useToast } from "../../context/ToastContext";
 import { useMedicalRecord, useSessionNoteEditor } from "../../hooks/useMedicalRecord";
+import { uploadFile } from "../../services/api";
 import type { MedicalAttachmentUpsert, MedicalRecord, MedicalRecordUpsert, SessionNote, SessionNoteUpsert } from "../../types";
 
 type Tab = "ficha" | "evolucoes" | "anexos";
@@ -51,7 +52,7 @@ function MedicalRecordPage({ readOnly = false }: { readOnly?: boolean }) {
       {tab === "anexos" ? (
         <AttachmentList
           items={attachments}
-          readOnly={false}
+          readOnly={readOnly}
           onCreate={async (body) => { await addAttachment(body); await reload(); }}
           onRemove={async (id) => { await removeAttachment(id); await reload(); }}
         />
@@ -187,15 +188,32 @@ function AttachmentList({ items, readOnly, onCreate, onRemove }: {
 }) {
   const { showToast } = useToast();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<MedicalAttachmentUpsert>({ title: "", fileUrl: "", fileType: "link" });
+  const [draft, setDraft] = useState<MedicalAttachmentUpsert>({ title: "", fileUrl: "", fileType: "" });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const pickFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const { url } = await uploadFile(file);
+      setDraft((current) => ({ ...current, fileUrl: url, fileType: file.type || file.name.split(".").pop() || "" }));
+    } catch {
+      showToast("error", "Nao foi possivel enviar o arquivo.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!draft.fileUrl) {
+      showToast("error", "Envie um arquivo antes de salvar.");
+      return;
+    }
     setSaving(true);
     try {
       await onCreate(draft);
-      setDraft({ title: "", fileUrl: "", fileType: "link" });
+      setDraft({ title: "", fileUrl: "", fileType: "" });
       setOpen(false);
       showToast("success", "Anexo salvo.");
     } catch {
@@ -225,9 +243,19 @@ function AttachmentList({ items, readOnly, onCreate, onRemove }: {
       <Modal open={open} title="Novo anexo" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={submit}>
           <Input label="Titulo" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} required />
-          <Input label="URL do arquivo" value={draft.fileUrl} onChange={(event) => setDraft({ ...draft, fileUrl: event.target.value })} required />
-          <Input label="Tipo" value={draft.fileType} onChange={(event) => setDraft({ ...draft, fileType: event.target.value })} />
-          <Button loading={saving}>Salvar anexo</Button>
+          <label className="grid gap-2 text-sm font-medium text-brown-dark">
+            <span>Arquivo</span>
+            <input
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void pickFile(file);
+              }}
+            />
+          </label>
+          {uploading ? <p className="text-xs text-brown-mid">Enviando arquivo...</p> : null}
+          {draft.fileUrl ? <p className="text-xs text-brown-mid">Arquivo pronto para salvar.</p> : null}
+          <Button loading={saving} disabled={uploading || !draft.fileUrl}>Salvar anexo</Button>
         </form>
       </Modal>
     </>
