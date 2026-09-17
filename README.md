@@ -4,10 +4,12 @@ Monorepo do sistema AIO para clinicas e consultorios premium em formato white la
 
 ## Stack
 
-- **Front-end**: React 19 + Vite + TypeScript, hospedado na Vercel.
-- **Back-end**: Node.js + Express + TypeScript, rodando localmente (não deployado).
+- **Front-end**: React 19 + Vite + TypeScript, hospedado na Vercel ([www.psicologiaeexistir.com.br](https://www.psicologiaeexistir.com.br/)).
+- **Back-end**: Node.js + Express + TypeScript, rodando como função serverless na Vercel ([aio-63dv.vercel.app](https://aio-63dv.vercel.app/)).
 - **Banco de dados**: PostgreSQL gerenciado pelo Supabase, acessado via Prisma ORM.
 - **Storage**: bucket `uploads` do Supabase Storage, para anexos de prontuário e afins.
+
+Documentação completa de arquitetura, fluxo e deploy em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 
 ## Como rodar o front-end
 
@@ -76,6 +78,8 @@ Nenhum componente do front fixa nome, logo, paleta ou conteudo institucional. A 
 
 ## Deploy
 
-- **Front-end (Vercel)**: aponte `VITE_API_URL` para onde o backend estiver acessível. Como o backend roda local por padrão, o front em produção só conseguirá falar com a API se você expuser o backend local publicamente (túnel, VPN, etc.) — isso é uma decisão de infraestrutura à parte.
-- **Backend**: local, via `npm run dev` (ou `npm run build && npm start` para rodar a build compilada).
+- **Front-end (Vercel)**: projeto apontando para `frontend/`, build `npm run build`. Variável `VITE_API_URL` (lida em build time) aponta para a URL pública do backend, ex. `https://aio-63dv.vercel.app/api`.
+- **Backend (Vercel, serverless)**: projeto apontando para `backend/`, entry point `backend/api/index.ts` (exporta o `app` Express sem `listen()`). Variáveis obrigatórias: `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_STORAGE_BUCKET`, `JWT_SIGNING_KEY` e `CORS_ORIGINS` (domínio do front).
 - **Banco**: Supabase Postgres, gerenciado direto pelo painel do Supabase.
+
+Detalhes completos em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md#7-implantação-deploy).
