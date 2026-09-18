@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword } from "../lib/password.js";
 import { createAccessToken, createRefreshTokenValue, hashToken, refreshTokenExpiry } from "../lib/token.js";
 import { buildSafeUser, primaryRole } from "../dto/user.js";
 import { consumePasswordResetToken, issuePasswordResetToken, sendPasswordResetEmail } from "../lib/passwordReset.js";
+import { notifyPatientRegistered } from "../lib/notifications.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -73,6 +74,8 @@ router.post(
         patient: { create: {} },
       },
     });
+
+    await notifyPatientRegistered({ email: user.email, fullName: user.fullName });
 
     res.json(await issueTokens(user.id, user.email, user.fullName, "paciente"));
   }),

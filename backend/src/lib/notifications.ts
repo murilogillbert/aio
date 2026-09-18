@@ -32,6 +32,16 @@ export const notifyAppointmentCreated = async (appointmentId: string): Promise<v
   await sendEmailSilently({ to: recipients, subject: "Novo agendamento", html });
 };
 
+export const notifyPatientRegistered = async (params: { email: string; fullName: string }): Promise<void> => {
+  const html = `
+    <div style="font-family: sans-serif; max-width: 480px;">
+      <h2>Bem-vindo(a), ${params.fullName}</h2>
+      <p>Seu cadastro foi realizado com sucesso. Agora você já pode entrar na sua conta para agendar consultas e acompanhar seus atendimentos.</p>
+    </div>
+  `;
+  await sendEmailSilently({ to: params.email, subject: "Cadastro confirmado", html });
+};
+
 export const notifyAdminsPaymentConfirmed = async (appointmentId: string, amount: number): Promise<void> => {
   const admins = await prisma.user.findMany({
     where: { isActive: true, userRoles: { some: { role: { name: "admin" } } } },
