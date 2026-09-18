@@ -11,7 +11,7 @@ router.use(requireAuth, requireRole("admin"));
 router.get(
   "/usuarios",
   asyncHandler(async (_req, res) => {
-    const users = await prisma.user.findMany({ select: { id: true } });
+    const users = await prisma.user.findMany({ select: { id: true }, take: 500 });
     const safeUsers = await Promise.all(users.map((user) => buildSafeUser(user.id)));
     res.json(safeUsers.filter(Boolean));
   }),

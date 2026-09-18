@@ -20,6 +20,13 @@ export const defaultConfig: ClinicConfig = {
   whatsappUrl: "https://wa.me/5511999999999",
   instagramUrl: "https://instagram.com/clinicaaurora",
   openingHours: "Segunda a sexta, 8h às 20h. Sábado, 8h às 14h.",
+  openingHoursStructured: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+    weekday,
+    opens: "09:00",
+    closes: "18:00",
+    closed: weekday === 0,
+  })),
+  seo: { title: "", description: "", ogImageUrl: "" },
   banners: [
     {
       id: "banner-1",

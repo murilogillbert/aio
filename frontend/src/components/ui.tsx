@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -26,18 +27,23 @@ export function Button({
   );
 }
 
+const errorBorder = "border-red-400 focus:border-red-500";
+
 export function Input({
   label,
   className = "",
+  error,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+}: InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string }) {
   return (
     <label className="grid gap-2 text-sm font-medium text-brown-dark">
       <span>{label}</span>
       <input
-        className={`min-h-11 rounded-lg border border-brown-mid/25 bg-surface px-3 py-2 text-brown-dark shadow-sm transition duration-200 placeholder:text-brown-mid/70 focus:border-primary ${className}`}
+        className={`min-h-11 rounded-lg border bg-surface px-3 py-2 text-brown-dark shadow-sm transition duration-200 placeholder:text-brown-mid/70 ${error ? errorBorder : "border-brown-mid/25 focus:border-primary"} ${className}`}
+        aria-invalid={Boolean(error)}
         {...props}
       />
+      {error ? <span className="text-xs font-normal text-red-600">{error}</span> : null}
     </label>
   );
 }
@@ -46,17 +52,20 @@ export function Select({
   label,
   children,
   className = "",
+  error,
   ...props
-}: SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { label: string; error?: string }) {
   return (
     <label className="grid gap-2 text-sm font-medium text-brown-dark">
       <span>{label}</span>
       <select
-        className={`min-h-11 rounded-lg border border-brown-mid/25 bg-surface px-3 py-2 text-brown-dark shadow-sm transition duration-200 focus:border-primary ${className}`}
+        className={`min-h-11 rounded-lg border bg-surface px-3 py-2 text-brown-dark shadow-sm transition duration-200 ${error ? errorBorder : "border-brown-mid/25 focus:border-primary"} ${className}`}
+        aria-invalid={Boolean(error)}
         {...props}
       >
         {children}
       </select>
+      {error ? <span className="text-xs font-normal text-red-600">{error}</span> : null}
     </label>
   );
 }
@@ -64,15 +73,18 @@ export function Select({
 export function Textarea({
   label,
   className = "",
+  error,
   ...props
-}: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }) {
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string }) {
   return (
     <label className="grid gap-2 text-sm font-medium text-brown-dark">
       <span>{label}</span>
       <textarea
-        className={`min-h-28 rounded-lg border border-brown-mid/25 bg-surface px-3 py-2 text-brown-dark shadow-sm transition duration-200 placeholder:text-brown-mid/70 focus:border-primary ${className}`}
+        className={`min-h-28 rounded-lg border bg-surface px-3 py-2 text-brown-dark shadow-sm transition duration-200 placeholder:text-brown-mid/70 ${error ? errorBorder : "border-brown-mid/25 focus:border-primary"} ${className}`}
+        aria-invalid={Boolean(error)}
         {...props}
       />
+      {error ? <span className="text-xs font-normal text-red-600">{error}</span> : null}
     </label>
   );
 }
@@ -105,13 +117,14 @@ export function EmptyState({ title, action }: { title: string; action?: ReactNod
 }
 
 export function Avatar({ src, name, className = "" }: { src?: string; name: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
   const initials = name
     .split(" ")
     .map((part) => part[0])
     .slice(0, 2)
     .join("");
-  return src ? (
-    <img src={src} alt={name} className={`h-12 w-12 rounded-lg object-cover ${className}`} />
+  return src && !failed ? (
+    <img src={src} alt={name} loading="lazy" onError={() => setFailed(true)} className={`h-12 w-12 rounded-lg object-cover ${className}`} />
   ) : (
     <div className={`flex h-12 w-12 items-center justify-center rounded-lg bg-bg-secondary font-semibold ${className}`}>
       {initials}

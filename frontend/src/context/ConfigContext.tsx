@@ -31,7 +31,18 @@ const applyConfigToRoot = (config: ClinicConfig) => {
   root.style.setProperty("--color-surface", hexToRgb(config.theme.surface));
   root.style.setProperty("--font-heading", `"${config.theme.headingFont}", serif`);
   root.style.setProperty("--font-body", `"${config.theme.bodyFont}", sans-serif`);
-  document.title = config.clinicName;
+  document.title = config.seo.title || config.clinicName;
+
+  const description = config.seo.description || config.about.text;
+  if (description) {
+    let meta = document.querySelector('meta[name="description"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "description");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", description);
+  }
 };
 
 export function ConfigProvider({ children }: { children: React.ReactNode }) {

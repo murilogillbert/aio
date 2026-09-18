@@ -26,6 +26,7 @@ const toServiceDto = (service: NonNullable<ServiceWithRelations>) => ({
   professionalIds: service.professionalServices.map((ps) => ps.professionalId),
   roomIds: service.roomServices.map((rs) => rs.roomId),
   equipmentIds: service.serviceEquipments.map((se) => se.equipmentId),
+  featured: service.featured,
 });
 
 const professionalInclude = {
@@ -66,13 +67,18 @@ const toProfessionalDto = (professional: NonNullable<ProfessionalWithRelations>)
       end: schedule.endTime,
     })),
     monthlyFixedPayment: professional.monthlyFixedPayment ? Number(professional.monthlyFixedPayment) : undefined,
+    featured: professional.featured,
   };
 };
 
 router.get(
   "/servicos",
   asyncHandler(async (_req, res) => {
-    const services = await prisma.service.findMany({ where: { isActive: true }, include: serviceInclude });
+    const services = await prisma.service.findMany({
+      where: { isActive: true },
+      include: serviceInclude,
+      orderBy: [{ featured: "desc" }, { name: "asc" }],
+    });
     res.json(services.map(toServiceDto));
   }),
 );
@@ -92,6 +98,7 @@ router.get(
     const professionals = await prisma.professional.findMany({
       where: { isActive: true },
       include: professionalInclude,
+      orderBy: [{ featured: "desc" }, { name: "asc" }],
     });
     res.json(professionals.map(toProfessionalDto));
   }),

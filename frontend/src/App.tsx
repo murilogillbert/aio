@@ -61,6 +61,7 @@ import {
 import {
   AdminAboutConfig,
   AdminBannersConfig,
+  AdminContactConfig,
   AdminDashboard,
   AdminDesignConfig,
   AdminMetrics,
@@ -132,6 +133,7 @@ const adminLinks: SidebarLink[] = [
   { to: "/admin/servicos", label: "Serviços", icon: <Stethoscope className="h-4 w-4" /> },
   { to: "/admin/recrutamento", label: "Recrutamento", icon: <BriefcaseBusiness className="h-4 w-4" /> },
   { to: "/admin/configuracoes/design", label: "Design", icon: <Palette className="h-4 w-4" /> },
+  { to: "/admin/configuracoes/contato", label: "Contato & SEO", icon: <HomeIcon className="h-4 w-4" /> },
   { to: "/admin/configuracoes/sobre", label: "Sobre", icon: <HomeIcon className="h-4 w-4" /> },
   { to: "/admin/configuracoes/banners", label: "Banners", icon: <ClipboardList className="h-4 w-4" /> },
   { to: "/admin/configuracoes/notificacoes", label: "Notificações", icon: <Settings className="h-4 w-4" /> },
@@ -211,6 +213,7 @@ export default function App() {
           <Route path="/admin/configuracoes/salas" element={<AdminSimpleConfig resource="salas" title="Salas" description="Tipos compatíveis, equipamentos, capacidade e observações." />} />
           <Route path="/admin/configuracoes/equipamentos" element={<AdminSimpleConfig resource="equipamentos" title="Equipamentos" description="Categoria, salas, quantidade e valor unitário." />} />
           <Route path="/admin/configuracoes/chat-interno" element={<AdminSimpleConfig resource="chat-interno" title="Chat interno" description="Canais e participantes por role ou usuário." />} />
+          <Route path="/admin/configuracoes/contato" element={<AdminContactConfig />} />
           <Route path="/admin/configuracoes/sobre" element={<AdminAboutConfig />} />
           <Route path="/admin/configuracoes/banners" element={<AdminBannersConfig />} />
           <Route path="/admin/configuracoes/design" element={<AdminDesignConfig />} />

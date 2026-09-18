@@ -61,7 +61,7 @@ const attachCategory = async (serviceId: string, categoryName: string) => {
 const handlers: Record<string, ResourceHandler> = {
   profissionais: {
     async list() {
-      const rows = await prisma.professional.findMany();
+      const rows = await prisma.professional.findMany({ take: 500 });
       return rows.map((p) => ({
         id: p.id,
         title: p.name,
@@ -77,6 +77,7 @@ const handlers: Record<string, ResourceHandler> = {
           defaultCommission: String(p.defaultCommissionPercent),
           monthlyFixedPayment: p.monthlyFixedPayment ? String(p.monthlyFixedPayment) : "",
           providesCare: String(p.providesCare),
+          featured: String(p.featured),
         },
       }));
     },
@@ -98,6 +99,7 @@ const handlers: Record<string, ResourceHandler> = {
           defaultCommissionPercent: num(fields, "defaultCommission"),
           monthlyFixedPayment: fields.monthlyFixedPayment ? num(fields, "monthlyFixedPayment") : null,
           providesCare: boolVal(fields, "providesCare", true),
+          featured: boolVal(fields, "featured", false),
         },
       });
       return (await handlers.profissionais.list()).find((item) => item.id === created.id)!;
@@ -126,6 +128,7 @@ const handlers: Record<string, ResourceHandler> = {
           defaultCommissionPercent: num(fields, "defaultCommission"),
           monthlyFixedPayment: fields.monthlyFixedPayment ? num(fields, "monthlyFixedPayment") : null,
           providesCare: boolVal(fields, "providesCare", true),
+          featured: boolVal(fields, "featured", false),
         },
       });
 
@@ -142,7 +145,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   servicos: {
     async list() {
-      const rows = await prisma.service.findMany({ include: { serviceCategories: { include: { category: true } } } });
+      const rows = await prisma.service.findMany({ include: { serviceCategories: { include: { category: true } } }, take: 500 });
       return rows.map((s) => ({
         id: s.id,
         title: s.name,
@@ -191,7 +194,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   vagas: {
     async list() {
-      const rows = await prisma.jobOpening.findMany();
+      const rows = await prisma.jobOpening.findMany({ take: 500 });
       return rows.map((j) => ({
         id: j.id,
         title: j.title,
@@ -229,7 +232,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   categorias: {
     async list() {
-      const rows = await prisma.category.findMany();
+      const rows = await prisma.category.findMany({ take: 500 });
       return rows.map((c) => ({
         id: c.id,
         title: c.name,
@@ -252,7 +255,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   salas: {
     async list() {
-      const rows = await prisma.room.findMany();
+      const rows = await prisma.room.findMany({ take: 500 });
       return rows.map((r) => ({
         id: r.id,
         title: r.name,
@@ -280,7 +283,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   equipamentos: {
     async list() {
-      const rows = await prisma.equipment.findMany();
+      const rows = await prisma.equipment.findMany({ take: 500 });
       return rows.map((e) => ({
         id: e.id,
         title: e.name,
@@ -318,7 +321,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   templates: {
     async list() {
-      const rows = await prisma.messageTemplate.findMany();
+      const rows = await prisma.messageTemplate.findMany({ take: 500 });
       return rows.map((t) => ({
         id: t.id,
         title: t.occasion,
@@ -346,7 +349,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   notificacoes: {
     async list() {
-      const rows = await prisma.notificationRule.findMany();
+      const rows = await prisma.notificationRule.findMany({ take: 500 });
       return rows.map((r) => ({
         id: r.id,
         title: r.trigger,
@@ -405,7 +408,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   planos: {
     async list() {
-      const rows = await prisma.plan.findMany();
+      const rows = await prisma.plan.findMany({ take: 500 });
       return rows.map((p) => ({
         id: p.id,
         title: p.name,
@@ -428,7 +431,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   "chat-interno": {
     async list() {
-      const rows = await prisma.messagingChannel.findMany();
+      const rows = await prisma.messagingChannel.findMany({ take: 500 });
       return rows.map((c) => ({
         id: c.id,
         title: c.name,
@@ -456,7 +459,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   banners: {
     async list() {
-      const rows = await prisma.banner.findMany({ orderBy: { sortOrder: "asc" } });
+      const rows = await prisma.banner.findMany({ orderBy: { sortOrder: "asc" }, take: 500 });
       return rows.map((b) => ({
         id: b.id,
         title: b.title,
@@ -508,7 +511,7 @@ const handlers: Record<string, ResourceHandler> = {
 
   custos: {
     async list() {
-      const rows = await prisma.cost.findMany();
+      const rows = await prisma.cost.findMany({ take: 500 });
       return rows.map((c) => ({
         id: c.id,
         title: c.name,
@@ -549,6 +552,7 @@ const handlers: Record<string, ResourceHandler> = {
       const rows = await prisma.user.findMany({
         include: { userRoles: { include: { role: true } } },
         orderBy: { fullName: "asc" },
+        take: 500,
       });
       return rows.map((u) => {
         const role = u.userRoles[0]?.role.name ?? "";

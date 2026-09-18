@@ -4,6 +4,7 @@ import { Bell, CalendarCheck, Clock, Loader2, MessageCircle, Plus, Search } from
 import { Badge, Button, Card, Input, Modal, Skeleton, Textarea } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { ChatPanel } from "../../components/ChatPanel";
+import { useConfirm } from "../../context/ConfirmContext";
 import {
   createConversation,
   createPatient,
@@ -121,6 +122,7 @@ const emptyPatient: PatientUpsert = {
 
 export function ReceptionPatients() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const { patients: items, loading, reload: load } = usePatientsSearch(search);
@@ -190,7 +192,7 @@ export function ReceptionPatients() {
   };
 
   const remove = async (patient: PatientRich) => {
-    if (!window.confirm(`Inativar paciente ${patient.name}?`)) return;
+    if (!(await confirm(`Inativar paciente ${patient.name}?`, { danger: true, confirmLabel: "Inativar" }))) return;
     try {
       await deletePatient(patient.id);
       showToast("success", "Paciente inativado.");

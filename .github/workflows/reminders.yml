@@ -1,0 +1,29 @@
+name: Lembretes de atendimento
+
+# Roda de hora em hora e chama o backend para disparar e-mail de lembrete aos
+# pacientes com atendimento nas próximas ~24h. Usa GitHub Actions (gratuito em
+# repositórios privados dentro do limite de minutos incluído) em vez de Vercel
+# Cron para não depender de um plano pago da Vercel.
+#
+# Configuração necessária em Settings > Secrets and variables > Actions:
+#   BACKEND_URL  -> ex.: https://aio-63dv.vercel.app
+#   CRON_SECRET  -> o mesmo valor da env var CRON_SECRET configurada no projeto
+#                   backend na Vercel
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  disparar-lembretes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar endpoint de lembretes
+        run: |
+          curl --fail --silent --show-error \
+            -X POST "${BACKEND_URL}/api/jobs/lembretes" \
+            -H "x-cron-secret: ${CRON_SECRET}"
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

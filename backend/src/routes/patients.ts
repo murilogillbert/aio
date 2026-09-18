@@ -12,29 +12,54 @@ router.use(requireAuth, requireRole("admin", "recepcao"));
 
 const patientInclude = { user: true, _count: { select: { dependents: true } } } as const;
 
+const PATIENT_LIST_LIMIT = 200;
+
 router.get(
   "/",
   asyncHandler(async (req, res) => {
     const { search, includeInactive } = req.query as { search?: string; includeInactive?: string };
+    const activeFilter = includeInactive === "true" ? {} : { isActive: true };
+
+    const term = search?.trim();
+    if (!term) {
+      const patients = await prisma.patient.findMany({
+        where: activeFilter,
+        include: patientInclude,
+        take: PATIENT_LIST_LIMIT,
+        orderBy: { user: { fullName: "asc" } },
+      });
+      res.json(patients.map(toPatientRich));
+      return;
+    }
+
+    // Busca no SQL (nome/email por ILIKE, CPF/telefone normalizando dígitos) em vez de
+    // carregar a tabela inteira de pacientes pra filtrar em JS — evita full table scan
+    // a cada busca conforme a base de pacientes cresce.
+    const termDigits = digitsOnly(term);
+    const matches = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT p.id FROM "Patient" p
+      JOIN "User" u ON u.id = p."userId"
+      WHERE (${includeInactive === "true"} OR p."isActive" = true)
+        AND (
+          u."fullName" ILIKE ${`%${term}%`}
+          OR u.email ILIKE ${`%${term}%`}
+          OR (${termDigits} != '' AND regexp_replace(p.cpf, '[^0-9]', '', 'g') LIKE ${`%${termDigits}%`})
+          OR (${termDigits} != '' AND regexp_replace(u.phone, '[^0-9]', '', 'g') LIKE ${`%${termDigits}%`})
+        )
+      LIMIT ${PATIENT_LIST_LIMIT}
+    `;
+
+    if (matches.length === 0) {
+      res.json([]);
+      return;
+    }
 
     const patients = await prisma.patient.findMany({
-      where: includeInactive === "true" ? {} : { isActive: true },
+      where: { id: { in: matches.map((m) => m.id) } },
       include: patientInclude,
+      orderBy: { user: { fullName: "asc" } },
     });
-
-    const term = search?.trim().toLowerCase();
-    const termDigits = search ? digitsOnly(search) : "";
-    const filtered = term
-      ? patients.filter(
-          (patient) =>
-            patient.user.fullName.toLowerCase().includes(term) ||
-            patient.user.email.toLowerCase().includes(term) ||
-            (termDigits.length > 0 &&
-              (digitsOnly(patient.cpf).includes(termDigits) || digitsOnly(patient.user.phone).includes(termDigits))),
-        )
-      : patients;
-
-    res.json(filtered.slice(0, 200).map(toPatientRich));
+    res.json(patients.map(toPatientRich));
   }),
 );
 
@@ -66,17 +91,20 @@ router.post(
     if (!body.name || !body.email) throw badRequest("Informe nome e email.");
 
     if (!force) {
-      const candidates = await prisma.patient.findMany({ include: patientInclude });
-      const emailLower = body.email.toLowerCase();
       const cpfDigits = body.cpf ? digitsOnly(body.cpf) : "";
       const phoneDigits = body.phone ? digitsOnly(body.phone) : "";
-      const matches = candidates.filter(
-        (patient) =>
-          patient.user.email.toLowerCase() === emailLower ||
-          (cpfDigits.length > 0 && digitsOnly(patient.cpf) === cpfDigits) ||
-          (phoneDigits.length > 0 && digitsOnly(patient.user.phone) === phoneDigits),
-      );
-      if (matches.length > 0) {
+      const candidateIds = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT p.id FROM "Patient" p
+        JOIN "User" u ON u.id = p."userId"
+        WHERE LOWER(u.email) = LOWER(${body.email})
+          OR (${cpfDigits} != '' AND regexp_replace(p.cpf, '[^0-9]', '', 'g') = ${cpfDigits})
+          OR (${phoneDigits} != '' AND regexp_replace(u.phone, '[^0-9]', '', 'g') = ${phoneDigits})
+      `;
+      if (candidateIds.length > 0) {
+        const matches = await prisma.patient.findMany({
+          where: { id: { in: candidateIds.map((c) => c.id) } },
+          include: patientInclude,
+        });
         res.status(409).json({ matches: matches.map(toPatientRich) });
         return;
       }

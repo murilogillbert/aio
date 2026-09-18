@@ -8,7 +8,12 @@ import { addDays, dateOnly, splitIso } from "../lib/datetime.js";
 import { hasConflict } from "../lib/conflict.js";
 import { appointmentInclude, findAppointmentRich, toAppointmentRich } from "../dto/appointment.js";
 import { myPatientId, myProfessionalId } from "../lib/actor.js";
-import { notifyAdminsPaymentConfirmed, notifyAppointmentCreated } from "../lib/notifications.js";
+import {
+  notifyAdminsPaymentConfirmed,
+  notifyAppointmentCancelled,
+  notifyAppointmentConfirmed,
+  notifyAppointmentCreated,
+} from "../lib/notifications.js";
 import { computeCommission } from "../lib/commission.js";
 
 const router = Router();
@@ -249,6 +254,7 @@ router.patch(
       await prisma.movementLog.create({
         data: { eventType: "APPOINTMENT_CANCELLED", description: `Agendamento ${existing.id} cancelado` },
       });
+      await notifyAppointmentCancelled(existing.id, data.cancellationSource as string | undefined);
     }
 
     res.json(await findAppointmentRich(existing.id));
@@ -266,6 +272,7 @@ router.patch(
     if (!existing) throw notFound("Agendamento não encontrado.");
 
     await prisma.appointment.update({ where: { id: existing.id }, data: { patientConfirmation: value as never } });
+    if (value === "Confirmado") await notifyAppointmentConfirmed(existing.id);
     res.json(await findAppointmentRich(existing.id));
   }),
 );

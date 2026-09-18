@@ -28,6 +28,7 @@ export const toServiceDetailDto = (service: ServiceDetailRow) => ({
   showPrice: service.showPrice,
   showDuration: service.showDuration,
   isActive: service.isActive,
+  featured: service.featured,
   categoryIds: service.serviceCategories.map((sc) => sc.categoryId),
   professionals: service.professionalServices.map((ps) => ({
     professionalId: ps.professionalId,
@@ -67,6 +68,7 @@ export type ServiceUpsertBody = {
   showPrice: boolean;
   showDuration: boolean;
   isActive: boolean;
+  featured: boolean;
   categoryIds: string[];
   professionals: { professionalId: string; compensationType: string; compensationValue?: number | null }[];
   roomIds: string[];
@@ -89,6 +91,7 @@ const scalarData = (body: ServiceUpsertBody) => ({
   showPrice: body.showPrice ?? true,
   showDuration: body.showDuration ?? true,
   isActive: body.isActive ?? true,
+  featured: Boolean(body.featured),
 });
 
 const replaceRelations = async (serviceId: string, body: ServiceUpsertBody) => {

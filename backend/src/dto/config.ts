@@ -19,6 +19,8 @@ export type ClinicConfig = {
   whatsappUrl: string;
   instagramUrl: string;
   openingHours: string;
+  openingHoursStructured: { weekday: number; opens: string; closes: string; closed: boolean }[];
+  seo: { title: string; description: string; ogImageUrl: string };
   banners: unknown[];
   about: {
     text: string;
@@ -50,8 +52,19 @@ const SETTING_KEYS = [
   "whatsappUrl",
   "instagramUrl",
   "openingHours",
+  "openingHoursStructured",
+  "seo.title",
+  "seo.description",
+  "seo.ogImageUrl",
   "about.text",
 ] as const;
+
+const DEFAULT_OPENING_HOURS = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+  weekday,
+  opens: "09:00",
+  closes: "18:00",
+  closed: weekday === 0,
+}));
 
 const FALLBACK_INTEGRATIONS = [
   { id: "gmail-oauth", name: "Gmail OAuth", status: "mock" as const, description: "Autenticação e envio de emails via Gmail." },
@@ -101,6 +114,20 @@ export const buildClinicConfig = async (): Promise<ClinicConfig> => {
     whatsappUrl: get("whatsappUrl"),
     instagramUrl: get("instagramUrl"),
     openingHours: get("openingHours"),
+    openingHoursStructured: (() => {
+      const raw = get("openingHoursStructured");
+      if (!raw) return DEFAULT_OPENING_HOURS;
+      try {
+        return JSON.parse(raw) as { weekday: number; opens: string; closes: string; closed: boolean }[];
+      } catch {
+        return DEFAULT_OPENING_HOURS;
+      }
+    })(),
+    seo: {
+      title: get("seo.title"),
+      description: get("seo.description"),
+      ogImageUrl: get("seo.ogImageUrl"),
+    },
     banners: banners.map((banner) => ({
       id: banner.id,
       title: banner.title,
@@ -150,6 +177,10 @@ export const applyClinicConfig = async (config: ClinicConfig): Promise<void> => 
     whatsappUrl: config.whatsappUrl ?? "",
     instagramUrl: config.instagramUrl ?? "",
     openingHours: config.openingHours ?? "",
+    openingHoursStructured: JSON.stringify(config.openingHoursStructured ?? []),
+    "seo.title": config.seo?.title ?? "",
+    "seo.description": config.seo?.description ?? "",
+    "seo.ogImageUrl": config.seo?.ogImageUrl ?? "",
     "about.text": config.about?.text ?? "",
   };
 

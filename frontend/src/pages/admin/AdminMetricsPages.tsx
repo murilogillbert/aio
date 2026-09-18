@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Activity, AlertTriangle, Award, CheckCircle, Minus, TrendingDown, TrendingUp, XCircle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Activity, AlertTriangle, Award, CheckCircle, Minus, Plug, TrendingDown, TrendingUp, XCircle } from "lucide-react";
 import { Badge, Card, Select, Skeleton } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { currency } from "../../utils";
@@ -91,6 +92,24 @@ export function AdminDashboardPage() {
         <StatCard label="Atendimentos" value={String(data.appointments)} hint={`${data.appointmentsTrend > 0 ? "+" : ""}${data.appointmentsTrend}% vs anterior`} />
         <StatCard label="Ticket médio" value={currency(data.ticketAverage)} hint={`Ocupação ${data.occupancy}%`} />
       </StatGrid>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[240px_1fr]">
+        <StatCard label="Taxa de não comparecimento" value={`${data.noShowRate}%`} hint="Da clínica inteira, no período" />
+        <Card>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Plug className="h-4 w-4 text-primary" />
+              <h2 className="font-bold">Integrações conectadas</h2>
+            </div>
+            <Link to="/admin/configuracoes/integracoes" className="text-xs font-bold text-primary">Gerenciar</Link>
+          </div>
+          <p className="mt-1 text-xs text-brown-mid">{data.integrationsHealth.connected} de {data.integrationsHealth.total} configuradas</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {data.integrationsHealth.details.map((item) => (
+              <Badge key={item.key} tone={item.connected ? "success" : "neutral"}>{item.label}</Badge>
+            ))}
+          </div>
+        </Card>
+      </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card>
           <h2 className="font-bold">Lista de espera (agora)</h2>
@@ -147,6 +166,7 @@ export function AdminFaturamentoPage() {
       </StatGrid>
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card><h2 className="mb-3 font-bold">Por método de pagamento</h2><DistributionBar items={data.byMethod} /></Card>
+        <Card><h2 className="mb-3 font-bold">Online (Asaas) vs. manual (recepção)</h2><DistributionBar items={data.byOrigin} /></Card>
         <Card><h2 className="mb-3 font-bold">Por convênio</h2><DistributionBar items={data.byPlan} /></Card>
         <Card><h2 className="mb-3 font-bold">Custos por tipo</h2><DistributionBar items={data.custosByCategory} /></Card>
         <Card>
@@ -216,6 +236,7 @@ export function AdminMetricasProfissionaisPage() {
               <div><span className="text-xs text-brown-mid">Ticket médio</span><p className="font-bold">{currency(entry.ticket)}</p></div>
               <div><span className="text-xs text-brown-mid">Ocupação</span><p className="font-bold">{entry.occupancy}%</p></div>
               <div><span className="text-xs text-brown-mid">Cancelamento</span><p className="font-bold">{entry.cancellationRate}%</p></div>
+              <div><span className="text-xs text-brown-mid">Não compareceu</span><p className="font-bold">{entry.noShowCount}</p></div>
               <div><span className="text-xs text-brown-mid">Novos pacientes</span><p className="font-bold">{entry.newPatients}</p></div>
               <div><span className="text-xs text-brown-mid">Retorno</span><p className="font-bold">{entry.returningPatients}</p></div>
             </div>

@@ -30,6 +30,8 @@ export type AboutContent = {
   gallery: string[];
 };
 
+export type OpeningHoursDay = { weekday: number; opens: string; closes: string; closed: boolean };
+
 export type ClinicConfig = {
   clinicName: string;
   logoUrl: string;
@@ -39,6 +41,8 @@ export type ClinicConfig = {
   whatsappUrl: string;
   instagramUrl: string;
   openingHours: string;
+  openingHoursStructured: OpeningHoursDay[];
+  seo: { title: string; description: string; ogImageUrl: string };
   banners: Banner[];
   about: AboutContent;
   messageTemplates: MessageTemplate[];
@@ -58,6 +62,7 @@ export type Service = {
   professionalIds: string[];
   roomIds: string[];
   equipmentIds: string[];
+  featured?: boolean;
 };
 
 export type Professional = {
@@ -72,6 +77,7 @@ export type Professional = {
   services: string[];
   workingHours: { weekday: number; start: string; end: string }[];
   monthlyFixedPayment?: number;
+  featured?: boolean;
 };
 
 export type Dependent = {
@@ -258,6 +264,7 @@ export type ServiceDetail = {
   showPrice: boolean;
   showDuration: boolean;
   isActive: boolean;
+  featured: boolean;
   categoryIds: string[];
   professionals: ServiceProfessional[];
   roomIds: string[];
@@ -325,6 +332,7 @@ export type MetricsDashboard = {
   ticketAverage: number;
   occupancy: number;
   cancellationRate: number;
+  noShowRate: number;
   newPatients: number;
   revenueTrend: number;
   appointmentsTrend: number;
@@ -332,6 +340,7 @@ export type MetricsDashboard = {
   monthlySeries: { month: string; revenue: number; profit: number; appointments: number }[];
   waitingList: { appointmentId: string; patientName: string; professionalName: string; service: string; startTime: string; waitMinutes: number }[];
   upcoming: { appointmentId: string; patientName: string; professionalName: string; service: string; startTime: string }[];
+  integrationsHealth: { connected: number; total: number; details: { key: string; label: string; connected: boolean }[] };
 };
 
 export type MetricsFaturamento = {
@@ -347,6 +356,7 @@ export type MetricsFaturamento = {
   ticketMedio: number;
   delinquency: number;
   byMethod: { label: string; value: number }[];
+  byOrigin: { label: string; value: number }[];
   byPlan: { label: string; value: number }[];
   custosByCategory: { label: string; value: number }[];
   payouts: { professionalId: string; name: string; specialty: string; appointments: number; gross: number; commissionPct: number; net: number }[];

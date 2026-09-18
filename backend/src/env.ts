@@ -13,6 +13,7 @@ export const env = {
   supabaseSecretKey: required("SUPABASE_SECRET_KEY"),
   supabaseStorageBucket: process.env.SUPABASE_STORAGE_BUCKET ?? "uploads",
   frontendUrl: (process.env.FRONTEND_URL ?? "http://localhost:5173").replace(/\/+$/, ""),
+  cronSecret: process.env.CRON_SECRET,
   jwt: {
     issuer: process.env.JWT_ISSUER ?? "aio",
     audience: process.env.JWT_AUDIENCE ?? "aio-web",

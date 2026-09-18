@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { Badge, Button, Card, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
+import { Badge, Button, Card, EmptyState, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
 import { PageHeader } from "../../components/Page";
+import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import { currency } from "../../utils";
 import {
@@ -35,6 +36,7 @@ const emptyService = (): Omit<ServiceDetail, "id"> => ({
   showPrice: true,
   showDuration: true,
   isActive: true,
+  featured: false,
   categoryIds: [],
   professionals: [],
   roomIds: [],
@@ -63,7 +65,9 @@ export function AdminServiceEditor() {
   const [draft, setDraft] = useState<Omit<ServiceDetail, "id">>(emptyService());
   const [tab, setTab] = useState<Tab>("geral");
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | undefined>();
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   const open = creating || editingId !== null;
 
@@ -86,6 +90,7 @@ export function AdminServiceEditor() {
     setEditingId(null);
     setDraft(emptyService());
     setTab("geral");
+    setNameError(undefined);
     setCreating(true);
   };
 
@@ -93,6 +98,7 @@ export function AdminServiceEditor() {
     setCreating(false);
     setEditingId(id);
     setTab("geral");
+    setNameError(undefined);
     const detail = await getAdminService(id);
     const { id: _ignored, ...rest } = detail;
     setDraft(rest);
@@ -106,9 +112,11 @@ export function AdminServiceEditor() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!draft.name.trim()) {
-      showToast("error", "Informe o nome do serviço.");
+      setNameError("Informe o nome do serviço.");
+      setTab("geral");
       return;
     }
+    setNameError(undefined);
     setSaving(true);
     try {
       if (editingId) await updateAdminService(editingId, draft);
@@ -124,7 +132,7 @@ export function AdminServiceEditor() {
   };
 
   const remove = async (item: ServiceSummary) => {
-    if (!window.confirm(`Excluir o serviço "${item.name}"?`)) return;
+    if (!(await confirm(`Excluir o serviço "${item.name}"?`, { danger: true, confirmLabel: "Excluir" }))) return;
     try {
       await deleteAdminService(item.id);
       showToast("success", "Serviço excluído.");
@@ -143,6 +151,8 @@ export function AdminServiceEditor() {
       />
       {loading ? (
         <Skeleton className="h-72" />
+      ) : items.length === 0 ? (
+        <EmptyState title="Nenhum serviço cadastrado ainda." action={<Button onClick={openCreate}>Novo serviço</Button>} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {items.map((item) => (
@@ -164,7 +174,6 @@ export function AdminServiceEditor() {
               </div>
             </Card>
           ))}
-          {!items.length ? <p className="text-sm text-brown-mid">Nenhum serviço cadastrado ainda.</p> : null}
         </div>
       )}
 
@@ -183,7 +192,7 @@ export function AdminServiceEditor() {
         </div>
         <form className="grid gap-4" onSubmit={save}>
           {tab === "geral" ? (
-            <GeneralTab draft={draft} setDraft={setDraft} references={references} />
+            <GeneralTab draft={draft} setDraft={setDraft} references={references} nameError={nameError} clearNameError={() => setNameError(undefined)} />
           ) : null}
           {tab === "profissionais" ? (
             <ProfessionalsTab draft={draft} setDraft={setDraft} references={references} />
@@ -216,10 +225,16 @@ type TabProps = {
   references: ServiceReferences | null;
 };
 
-function GeneralTab({ draft, setDraft, references }: TabProps) {
+function GeneralTab({ draft, setDraft, references, nameError, clearNameError }: TabProps & { nameError?: string; clearNameError: () => void }) {
   return (
     <div className="grid gap-4">
-      <Input label="Nome" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required />
+      <Input
+        label="Nome"
+        value={draft.name}
+        error={nameError}
+        onChange={(event) => { setDraft({ ...draft, name: event.target.value }); clearNameError(); }}
+        required
+      />
       <Input label="Descrição curta" value={draft.shortDescription} onChange={(event) => setDraft({ ...draft, shortDescription: event.target.value })} />
       <Textarea label="Descrição completa" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
       <Textarea label="Orientações de preparo" value={draft.preparation} onChange={(event) => setDraft({ ...draft, preparation: event.target.value })} />
@@ -461,6 +476,7 @@ function ShowcaseTab({ draft, setDraft }: Pick<TabProps, "draft" | "setDraft">) 
       <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={draft.onlineBooking} onChange={(event) => setDraft({ ...draft, onlineBooking: event.target.checked })} />Disponível para agendamento online</label>
       <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={draft.showPrice} onChange={(event) => setDraft({ ...draft, showPrice: event.target.checked })} />Mostrar preço na listagem pública</label>
       <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={draft.showDuration} onChange={(event) => setDraft({ ...draft, showDuration: event.target.checked })} />Mostrar duração na listagem pública</label>
+      <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={draft.featured} onChange={(event) => setDraft({ ...draft, featured: event.target.checked })} />Destacar na página inicial</label>
     </div>
   );
 }

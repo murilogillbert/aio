@@ -1,7 +1,8 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Badge, Button, Card, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
+import { Badge, Button, Card, EmptyState, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
 import { MiniBarChart, PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { useConfig } from "../../context/ConfigContext";
+import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import type { AdminCrudField, AdminCrudItem, ClinicConfig, MetricsPoint } from "../../types";
 import { currency } from "../../utils";
@@ -26,6 +27,7 @@ const fieldSets: Record<string, AdminCrudField[]> = {
     { key: "defaultCommission", label: "Comissao padrao (%)", type: "number" },
     { key: "monthlyFixedPayment", label: "Pagamento fixo mensal", type: "number" },
     { key: "providesCare", label: "Atende pacientes", type: "select", options: ["true", "false"] },
+    { key: "featured", label: "Destacar na página inicial", type: "select", options: ["false", "true"] },
   ],
   servicos: [
     { key: "name", label: "Nome" },
@@ -122,6 +124,7 @@ function AdminCrudPage({
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -160,7 +163,7 @@ function AdminCrudPage({
   };
 
   const remove = async (item: AdminCrudItem) => {
-    if (!window.confirm(`Excluir ${item.title}?`)) return;
+    if (!(await confirm(`Excluir ${item.title}?`, { danger: true, confirmLabel: "Excluir" }))) return;
     try {
       await deleteAdminCrud(resource, item.id);
       showToast("success", "Registro excluido.");
@@ -175,6 +178,8 @@ function AdminCrudPage({
       <PageHeader title={title} description={description} actions={<Button onClick={() => openForm()}>Adicionar</Button>} />
       {loading ? (
         <Skeleton className="h-72" />
+      ) : items.length === 0 ? (
+        <EmptyState title="Nenhum registro cadastrado ainda." action={<Button onClick={() => openForm()}>Adicionar</Button>} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {items.map((item) => (
@@ -431,6 +436,108 @@ export function AdminDesignConfig() {
           <Button className="mt-4">CTA primario</Button>
         </Card>
       </div>
+    </>
+  );
+}
+
+const WEEKDAY_LABELS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+export function AdminContactConfig() {
+  const { config, updateConfig } = useConfig();
+  const { showToast } = useToast();
+  const [draft, setDraft] = useState(config);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setDraft(config), [config]);
+
+  const hours = draft.openingHoursStructured.length === 7
+    ? draft.openingHoursStructured
+    : WEEKDAY_LABELS.map((_, weekday) => ({ weekday, opens: "09:00", closes: "18:00", closed: weekday === 0 }));
+
+  const setDay = (weekday: number, patch: Partial<(typeof hours)[number]>) => {
+    setDraft({
+      ...draft,
+      openingHoursStructured: hours.map((day) => (day.weekday === weekday ? { ...day, ...patch } : day)),
+    });
+  };
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await updateConfig(draft);
+      showToast("success", "Contato e SEO salvos.");
+    } catch {
+      showToast("error", "Não foi possível salvar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <PageHeader title="Contato, localização & SEO" description="Endereço, mapa, redes sociais, horário de funcionamento e como o site aparece ao ser compartilhado." />
+      <form className="grid gap-4" onSubmit={save}>
+        <Card>
+          <h2 className="mb-4 font-bold">Contato e localização</h2>
+          <div className="grid gap-4">
+            <Input label="Endereço" value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="Latitude" type="number" step="0.000001" value={draft.coordinates.lat} onChange={(event) => setDraft({ ...draft, coordinates: { ...draft.coordinates, lat: Number(event.target.value) } })} />
+              <Input label="Longitude" type="number" step="0.000001" value={draft.coordinates.lng} onChange={(event) => setDraft({ ...draft, coordinates: { ...draft.coordinates, lng: Number(event.target.value) } })} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="Link do WhatsApp" placeholder="https://wa.me/55..." value={draft.whatsappUrl} onChange={(event) => setDraft({ ...draft, whatsappUrl: event.target.value })} />
+              <Input label="Link do Instagram" placeholder="https://instagram.com/..." value={draft.instagramUrl} onChange={(event) => setDraft({ ...draft, instagramUrl: event.target.value })} />
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <h2 className="mb-1 font-bold">Horário de funcionamento</h2>
+          <p className="mb-4 text-xs text-brown-mid">Exibido na página inicial, estruturado por dia da semana.</p>
+          <div className="grid gap-2">
+            {hours.map((day) => (
+              <div key={day.weekday} className="grid grid-cols-[100px_1fr_1fr_auto] items-center gap-3 rounded-lg bg-bg-secondary p-2 text-sm">
+                <span className="font-semibold">{WEEKDAY_LABELS[day.weekday]}</span>
+                <input
+                  type="time"
+                  className="min-h-9 rounded-lg border border-brown-mid/25 bg-surface px-2 disabled:opacity-50"
+                  value={day.opens}
+                  disabled={day.closed}
+                  onChange={(event) => setDay(day.weekday, { opens: event.target.value })}
+                />
+                <input
+                  type="time"
+                  className="min-h-9 rounded-lg border border-brown-mid/25 bg-surface px-2 disabled:opacity-50"
+                  value={day.closes}
+                  disabled={day.closed}
+                  onChange={(event) => setDay(day.weekday, { closes: event.target.value })}
+                />
+                <label className="flex items-center gap-2 whitespace-nowrap">
+                  <input type="checkbox" checked={day.closed} onChange={(event) => setDay(day.weekday, { closed: event.target.checked })} />
+                  Fechado
+                </label>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h2 className="mb-1 font-bold">SEO e compartilhamento</h2>
+          <p className="mb-4 text-xs text-brown-mid">
+            Título e descrição usados na aba do navegador e por leitores de tela. Como o site é uma aplicação que roda no navegador (sem
+            renderização no servidor), aplicativos de mensagem podem não exibir esta prévia ao colar o link — eles leem o HTML antes do
+            JavaScript rodar.
+          </p>
+          <div className="grid gap-4">
+            <Input label="Título (aba do navegador)" placeholder={draft.clinicName} value={draft.seo.title} onChange={(event) => setDraft({ ...draft, seo: { ...draft.seo, title: event.target.value } })} />
+            <Textarea label="Descrição" value={draft.seo.description} onChange={(event) => setDraft({ ...draft, seo: { ...draft.seo, description: event.target.value } })} />
+            <Input label="Imagem de compartilhamento (URL)" value={draft.seo.ogImageUrl} onChange={(event) => setDraft({ ...draft, seo: { ...draft.seo, ogImageUrl: event.target.value } })} />
+          </div>
+        </Card>
+
+        <Button loading={saving} className="w-fit">Salvar</Button>
+      </form>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { Calendar, ChevronLeft, ChevronRight, Instagram, MessageCircle } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Clock, Instagram, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { useConfig } from "../../context/ConfigContext";
@@ -9,12 +9,15 @@ import type { Professional, Service } from "../../types";
 import { currency } from "../../utils";
 import { Avatar } from "../../components/ui";
 
+const WEEKDAY_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
 export function Home() {
   const { config } = useConfig();
   const [slide, setSlide] = useState(0);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
+  const [heroImageFailed, setHeroImageFailed] = useState(false);
   const banners = useMemo(() => config.banners.filter((banner) => banner.active).sort((a, b) => a.order - b.order), [config.banners]);
   const active = banners[slide] ?? banners[0];
 
@@ -33,11 +36,20 @@ export function Home() {
     return () => window.clearInterval(timer);
   }, [banners.length]);
 
+  useEffect(() => setHeroImageFailed(false), [active?.id]);
+
   return (
     <div className="route-fade">
       {active ? (
         <section className="relative min-h-[540px] overflow-hidden bg-brown-dark text-white">
-          <img src={active.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55" />
+          {!heroImageFailed ? (
+            <img
+              src={active.imageUrl}
+              alt=""
+              onError={() => setHeroImageFailed(true)}
+              className="absolute inset-0 h-full w-full object-cover opacity-55"
+            />
+          ) : null}
           <div className="absolute inset-0 bg-brown-dark/35" />
           <div className="relative mx-auto flex min-h-[540px] max-w-7xl flex-col justify-end px-4 pb-14 pt-24">
             <div className="max-w-2xl">
@@ -126,7 +138,19 @@ export function Home() {
         <div>
           <h2 className="font-heading text-3xl font-bold">Mapa e contato</h2>
           <p className="mt-3 text-sm leading-6 text-brown-mid">{config.address}</p>
-          <p className="mt-2 text-sm leading-6 text-brown-mid">{config.openingHours}</p>
+          {config.openingHoursStructured.length === 7 ? (
+            <div className="mt-3 grid gap-1 text-sm">
+              {config.openingHoursStructured.map((day) => (
+                <div key={day.weekday} className="flex items-center gap-2 text-brown-mid">
+                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                  <span className="w-20 shrink-0 font-medium text-brown-dark">{WEEKDAY_SHORT[day.weekday]}</span>
+                  <span>{day.closed ? "Fechado" : `${day.opens} às ${day.closes}`}</span>
+                </div>
+              ))}
+            </div>
+          ) : config.openingHours ? (
+            <p className="mt-2 text-sm leading-6 text-brown-mid">{config.openingHours}</p>
+          ) : null}
           <div className="mt-5 flex flex-wrap gap-2">
             <a href={config.whatsappUrl}><Button><MessageCircle className="h-4 w-4" />WhatsApp</Button></a>
             <a href={config.instagramUrl}><Button variant="secondary"><Instagram className="h-4 w-4" />Instagram</Button></a>

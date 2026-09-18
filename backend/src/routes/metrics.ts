@@ -122,6 +122,7 @@ router.get(
 
     const completed = appointments.filter((a) => a.status === "Realizado").length;
     const cancelled = appointments.filter((a) => a.status === "Cancelado").length;
+    const noShow = appointments.filter((a) => a.status === "NaoCompareceu").length;
     const minutesWorked = appointments
       .filter((a) => a.status !== "Cancelado")
       .reduce((sum, a) => sum + a.service.durationMinutes, 0);
@@ -135,6 +136,31 @@ router.get(
     const newPatients = firstDates.filter(
       (row) => row._min.date && row._min.date >= range.start && row._min.date < range.end,
     ).length;
+
+    const clinic = await prisma.clinic.findFirst();
+    const integrationsHealth = clinic
+      ? {
+          connected: [
+            clinic.gmailConnected,
+            clinic.waConnected,
+            clinic.mpConnected,
+            clinic.asaasConnected,
+            clinic.resendConnected,
+            clinic.smtpConnected,
+            clinic.igConnected,
+          ].filter(Boolean).length,
+          total: 7,
+          details: [
+            { key: "gmail", label: "Gmail", connected: clinic.gmailConnected },
+            { key: "whatsapp", label: "WhatsApp", connected: clinic.waConnected },
+            { key: "mercadopago", label: "Mercado Pago", connected: clinic.mpConnected },
+            { key: "asaas", label: "Asaas", connected: clinic.asaasConnected },
+            { key: "resend", label: "Resend", connected: clinic.resendConnected },
+            { key: "smtp", label: "SMTP", connected: clinic.smtpConnected },
+            { key: "instagram", label: "Instagram", connected: clinic.igConnected },
+          ],
+        }
+      : { connected: 0, total: 7, details: [] };
 
     const snapshots = await prisma.metricsSnapshot.findMany();
     const today = dateOnlyString(new Date());
@@ -177,6 +203,7 @@ router.get(
       ticketAverage: completed > 0 ? Math.round((revenue / completed) * 100) / 100 : 0,
       occupancy,
       cancellationRate: appointments.length > 0 ? Math.round((cancelled / appointments.length) * 10000) / 100 : 0,
+      noShowRate: appointments.length > 0 ? Math.round((noShow / appointments.length) * 10000) / 100 : 0,
       newPatients,
       revenueTrend: trend(previousRevenue, revenue),
       appointmentsTrend: trend(previousAppointments.length, appointments.length),
@@ -189,6 +216,7 @@ router.get(
       })),
       waitingList,
       upcoming,
+      integrationsHealth,
     });
   }),
 );
@@ -229,6 +257,12 @@ router.get(
 
     const byMethod = new Map<string, number>();
     payments.forEach((p) => byMethod.set(p.method || "Outro", (byMethod.get(p.method || "Outro") ?? 0) + Number(p.grossAmount)));
+
+    const byOrigin = { online: 0, manual: 0 };
+    payments.forEach((p) => {
+      if (p.billingType === "PIX" || p.billingType === "CREDIT_CARD") byOrigin.online += Number(p.grossAmount);
+      else byOrigin.manual += Number(p.grossAmount);
+    });
 
     const byPlan = new Map<string, number>();
     payments.forEach((p) => {
@@ -275,6 +309,10 @@ router.get(
       ticketMedio: completedAppointments > 0 ? Math.round((totalRevenue / completedAppointments) * 100) / 100 : 0,
       delinquency,
       byMethod: [...byMethod.entries()].map(([label, value]) => ({ label, value })),
+      byOrigin: [
+        { label: "Pagamento online (Pix/cartão)", value: byOrigin.online },
+        { label: "Pagamento manual (recepção)", value: byOrigin.manual },
+      ],
       byPlan: [...byPlan.entries()].map(([label, value]) => ({ label, value })),
       custosByCategory: [...custosByCategory.entries()].map(([label, value]) => ({ label, value })),
       payouts: [...payoutByProfessional.values()].map((p) => ({

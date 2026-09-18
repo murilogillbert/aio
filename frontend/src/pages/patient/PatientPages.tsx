@@ -6,6 +6,7 @@ import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { ChatPanel } from "../../components/ChatPanel";
 import { PaymentCheckout } from "../../components/PaymentCheckout";
 import { useAuth } from "../../context/AuthContext";
+import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import { dateLabel } from "../../utils";
 import { useAppointmentsRange } from "../../hooks/useAppointments";
@@ -59,6 +60,7 @@ export function PatientDashboard() {
 export function PatientAppointments() {
   const { appointments, loading, reload } = useAppointmentsRange(addDaysStr(-365), addDaysStr(365));
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [rescheduling, setRescheduling] = useState<string | null>(null);
   const [newDate, setNewDate] = useState("");
   const [newTime, setNewTime] = useState("");
@@ -66,7 +68,7 @@ export function PatientAppointments() {
   const [paying, setPaying] = useState<string | null>(null);
 
   const cancel = async (id: string) => {
-    if (!window.confirm("Cancelar este agendamento?")) return;
+    if (!(await confirm("Cancelar este agendamento?", { danger: true, confirmLabel: "Cancelar agendamento", cancelLabel: "Voltar" }))) return;
     try {
       await patchAppointmentStatus(id, "Cancelado");
       showToast("success", "Agendamento cancelado.");
@@ -163,6 +165,7 @@ export function PatientAppointments() {
 export function PatientDependents() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const dependents = user?.dependents ?? [];
   const [editing, setEditing] = useState<Dependent | null>(null);
   const [draft, setDraft] = useState({ fullName: "", birthDate: "", relationship: "" });
@@ -198,7 +201,7 @@ export function PatientDependents() {
 
   const remove = async (dependent: Dependent) => {
     if (!user) return;
-    if (!window.confirm(`Remover ${dependent.fullName}?`)) return;
+    if (!(await confirm(`Remover ${dependent.fullName}?`, { danger: true, confirmLabel: "Remover" }))) return;
     try {
       await deleteDependent(dependent.id);
       updateUser({ ...user, dependents: dependents.filter((d) => d.id !== dependent.id) });
@@ -286,6 +289,7 @@ export function PatientPayment() {
   const [cards, setCards] = useState<SavedCard[]>([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   const load = () => {
     setLoading(true);
@@ -297,7 +301,7 @@ export function PatientPayment() {
   useEffect(load, []);
 
   const remove = async (card: SavedCard) => {
-    if (!window.confirm(`Remover cartão •••• ${card.last4}?`)) return;
+    if (!(await confirm(`Remover cartão •••• ${card.last4}?`, { danger: true, confirmLabel: "Remover" }))) return;
     try {
       await deleteSavedCard(card.id);
       showToast("success", "Cartão removido.");
