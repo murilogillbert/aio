@@ -262,8 +262,19 @@ export const testIntegration = async (type: string, payload: Record<string, unkn
       ) {
         return { ok: false, message: "Configure host, porta, usuário, senha e remetente válidos antes de testar." };
       }
+      const testEmail = payload.testEmail as string | undefined;
+      if (!testEmail || !isValidEmail(testEmail)) return { ok: false, message: "Informe um email de teste válido." };
+      const result = await sendEmail({
+        to: testEmail,
+        subject: "Teste de integração — AIO",
+        html: "<p>Este é um email de teste da integração SMTP configurada no painel administrativo.</p>",
+      });
+      if (!result.ok) {
+        await prisma.clinic.update({ where: { id: clinic.id }, data: { smtpConnected: false } });
+        return { ok: false, message: `Falha ao enviar email de teste: ${result.error}` };
+      }
       await prisma.clinic.update({ where: { id: clinic.id }, data: { smtpConnected: true } });
-      return { ok: true, message: "SMTP conectado com sucesso." };
+      return { ok: true, message: `Email de teste enviado para ${testEmail}.` };
     }
     case "asaas": {
       if (!clinic.asaasApiKey) return { ok: false, message: "Configure a API Key antes de testar." };

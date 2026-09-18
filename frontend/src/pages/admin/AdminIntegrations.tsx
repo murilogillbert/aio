@@ -120,7 +120,7 @@ export function AdminIntegrations() {
   const [mp, setMp] = useState({ accessTokenProd: "", accessTokenSandbox: "", publicKey: "", sandboxMode: true });
   const [resend, setResend] = useState({ apiKey: "", fromEmail: "", fromName: "", testEmail: "" });
   const [asaas, setAsaas] = useState({ apiKey: "", environment: "sandbox" });
-  const [smtp, setSmtp] = useState({ host: "", port: "", username: "", password: "", from: "" });
+  const [smtp, setSmtp] = useState({ host: "", port: "", username: "", password: "", from: "", testEmail: "" });
   const [ig, setIg] = useState({ accountId: "", pageId: "", accessToken: "", appSecret: "", verifyToken: "" });
 
   const baseUrl = ((import.meta as ImportMeta).env?.VITE_API_URL as string) ?? "http://127.0.0.1:5088/api";
@@ -136,7 +136,7 @@ export function AdminIntegrations() {
       setMp({ accessTokenProd: "", accessTokenSandbox: "", publicKey: next.mercadoPago.publicKey ?? "", sandboxMode: next.mercadoPago.sandboxMode });
       setResend({ apiKey: "", fromEmail: next.resend.fromEmail ?? "", fromName: next.resend.fromName ?? "", testEmail: "" });
       setAsaas({ apiKey: "", environment: next.asaas.environment });
-      setSmtp({ host: next.smtp.host ?? "", port: next.smtp.port?.toString() ?? "", username: next.smtp.username ?? "", password: "", from: next.smtp.from ?? "" });
+      setSmtp({ host: next.smtp.host ?? "", port: next.smtp.port?.toString() ?? "", username: next.smtp.username ?? "", password: "", from: next.smtp.from ?? "", testEmail: "" });
       setIg({ accountId: next.instagram.accountId ?? "", pageId: next.instagram.pageId ?? "", accessToken: "", appSecret: "", verifyToken: "" });
     } finally {
       setLoading(false);
@@ -325,17 +325,25 @@ export function AdminIntegrations() {
           </label>
         </Card>
 
-        <Section icon={<Send className="h-5 w-5 rotate-12" />} title="SMTP (fallback)" description="Servidor SMTP genérico caso o Resend não esteja disponível." status={statusOf(data.smtp.connected, Boolean(data.smtp.host))}>
+        <Section icon={<Send className="h-5 w-5 rotate-12" />} title="SMTP (Gmail)" description="Envio de e-mails transacionais (lembretes, confirmações, recuperação de senha) via SMTP — ex.: conta do Gmail com senha de app." status={statusOf(data.smtp.connected, Boolean(data.smtp.host))}>
+          <InstructionBox steps={[
+            "Ative a verificação em duas etapas na conta Google que vai enviar os e-mails",
+            "Acesse myaccount.google.com > Segurança > Senhas de app",
+            "Gere uma senha de app (16 caracteres) para 'Email'",
+            "Host: smtp.gmail.com · Porta: 465 · Usuário: o e-mail completo do Gmail",
+            "Senha: a senha de app gerada (não a senha normal da conta)",
+          ]} />
           <div className="grid gap-3 md:grid-cols-2">
             <Input label="Host" value={smtp.host} onChange={(event) => setSmtp({ ...smtp, host: event.target.value })} placeholder="smtp.gmail.com" />
-            <Input label="Porta" type="number" value={smtp.port} onChange={(event) => setSmtp({ ...smtp, port: event.target.value })} placeholder="587" />
-            <Input label="Usuário" value={smtp.username} onChange={(event) => setSmtp({ ...smtp, username: event.target.value })} />
-            <SensitiveField label="Senha" value={smtp.password} onChange={(v) => setSmtp({ ...smtp, password: v })} masked={data.smtp.passwordMasked} />
-            <Input label="Remetente" value={smtp.from} onChange={(event) => setSmtp({ ...smtp, from: event.target.value })} />
+            <Input label="Porta" type="number" value={smtp.port} onChange={(event) => setSmtp({ ...smtp, port: event.target.value })} placeholder="465" />
+            <Input label="Usuário" value={smtp.username} onChange={(event) => setSmtp({ ...smtp, username: event.target.value })} placeholder="suaclinica@gmail.com" />
+            <SensitiveField label="Senha de app" value={smtp.password} onChange={(v) => setSmtp({ ...smtp, password: v })} masked={data.smtp.passwordMasked} placeholder="xxxx xxxx xxxx xxxx" />
+            <Input label="Remetente" value={smtp.from} onChange={(event) => setSmtp({ ...smtp, from: event.target.value })} placeholder="suaclinica@gmail.com" />
+            <Input label="E-mail para teste" value={smtp.testEmail} onChange={(event) => setSmtp({ ...smtp, testEmail: event.target.value })} placeholder="voce@gmail.com" />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void save({ smtp: { host: smtp.host, port: Number(smtp.port) || 0, username: smtp.username, password: smtp.password || "", from: smtp.from } }, "SMTP")}>Salvar</Button>
-            <Button variant="secondary" onClick={() => void test("smtp")}>Verificar</Button>
+            <Button variant="secondary" onClick={() => void test("smtp", { testEmail: smtp.testEmail })}>Verificar + e-mail de teste</Button>
           </div>
         </Section>
 
