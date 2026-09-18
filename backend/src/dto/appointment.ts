@@ -3,6 +3,7 @@ import { addMinutesToTime, combineIso, dateOnlyString } from "../lib/datetime.js
 
 export const appointmentInclude = {
   patient: { include: { user: true } },
+  dependent: true,
   professional: true,
   service: true,
   room: true,
@@ -21,6 +22,8 @@ export const toAppointmentRich = (appointment: AppointmentWithRelations) => {
     id: appointment.id,
     patientId: appointment.patientId,
     patientName: appointment.patient.user.fullName,
+    dependentId: appointment.dependentId ?? null,
+    dependentName: appointment.dependent?.fullName ?? null,
     professionalId: appointment.professionalId,
     professionalName: appointment.professional.name,
     serviceId: appointment.serviceId,

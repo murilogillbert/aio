@@ -415,6 +415,8 @@ export type AppointmentRich = {
   id: string;
   patientId: string;
   patientName: string;
+  dependentId: string | null;
+  dependentName: string | null;
   professionalId: string;
   professionalName: string;
   serviceId: string;

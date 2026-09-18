@@ -763,6 +763,7 @@ function AppointmentDrawer({ appointment, onClose, onEdit, onStatusChange, onCon
           <div>
             <span className="text-xs uppercase tracking-wide text-brown-mid">Paciente</span>
             <p className="font-bold">{appointment.patientName}</p>
+            {appointment.dependentName ? <p className="text-xs font-medium text-primary">Atendimento é para {appointment.dependentName} (dependente)</p> : null}
           </div>
           <div>
             <span className="text-xs uppercase tracking-wide text-brown-mid">Serviço</span>

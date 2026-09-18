@@ -84,8 +84,12 @@ router.post(
     }
     if (!patient) throw badRequest("Paciente não encontrado.");
 
-    const dependentId =
-      body.patientTarget && body.patientTarget !== "self" ? body.patientTarget : null;
+    let dependentId: string | null = null;
+    if (body.patientTarget && body.patientTarget !== "self") {
+      const dependent = await prisma.dependent.findUnique({ where: { id: body.patientTarget } });
+      if (!dependent || dependent.patientId !== patient.id) throw badRequest("Dependente inválido.");
+      dependentId = dependent.id;
+    }
 
     const appointment = await prisma.appointment.create({
       data: {

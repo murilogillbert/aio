@@ -118,6 +118,7 @@ export function PatientAppointments() {
                   <div>
                     <h2 className="font-bold">{appointment.serviceName} com {appointment.professionalName}</h2>
                     <p className="text-sm text-brown-mid">{dateLabel(appointment.startTime.slice(0, 10))} às {appointment.startTime.slice(11, 16)}</p>
+                    {appointment.dependentName ? <p className="mt-1 text-xs font-medium text-primary">Para {appointment.dependentName} (dependente)</p> : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Badge tone={appointment.status === "Cancelado" ? "danger" : appointment.status === "Realizado" ? "success" : "neutral"}>{appointment.status}</Badge>
@@ -160,9 +161,9 @@ export function PatientAppointments() {
 }
 
 export function PatientDependents() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { showToast } = useToast();
-  const [dependents, setDependents] = useState<Dependent[]>(user?.dependents ?? []);
+  const dependents = user?.dependents ?? [];
   const [editing, setEditing] = useState<Dependent | null>(null);
   const [draft, setDraft] = useState({ fullName: "", birthDate: "", relationship: "" });
   const [open, setOpen] = useState(false);
@@ -176,14 +177,15 @@ export function PatientDependents() {
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
+    if (!user) return;
     setSaving(true);
     try {
       if (editing) {
         const updated = await updateDependent(editing.id, draft);
-        setDependents((current) => current.map((d) => (d.id === editing.id ? updated : d)));
+        updateUser({ ...user, dependents: dependents.map((d) => (d.id === editing.id ? updated : d)) });
       } else {
         const created = await createDependent(draft);
-        setDependents((current) => [...current, created]);
+        updateUser({ ...user, dependents: [...dependents, created] });
       }
       showToast("success", "Dependente salvo.");
       setOpen(false);
@@ -195,10 +197,11 @@ export function PatientDependents() {
   };
 
   const remove = async (dependent: Dependent) => {
+    if (!user) return;
     if (!window.confirm(`Remover ${dependent.fullName}?`)) return;
     try {
       await deleteDependent(dependent.id);
-      setDependents((current) => current.filter((d) => d.id !== dependent.id));
+      updateUser({ ...user, dependents: dependents.filter((d) => d.id !== dependent.id) });
       showToast("success", "Dependente removido.");
     } catch {
       showToast("error", "Não foi possível remover (verifique agendamentos vinculados).");

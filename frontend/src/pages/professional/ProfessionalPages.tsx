@@ -66,6 +66,7 @@ export function ProfessionalDashboard() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <strong>{item.startTime.slice(11, 16)} — {item.patientName}</strong>
+                  {item.dependentName ? <p className="text-xs font-medium text-primary">Para {item.dependentName} (dependente)</p> : null}
                   <p className="text-sm text-brown-mid">{item.serviceName}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
