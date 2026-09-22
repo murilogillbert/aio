@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { Loader2 } from "lucide-react";
+import { uploadFile } from "../services/api";
 
 const variantClass = {
   primary: "bg-primary text-white hover:bg-primary/90 border-primary",
@@ -128,6 +129,70 @@ export function Avatar({ src, name, className = "" }: { src?: string; name: stri
   ) : (
     <div className={`flex h-12 w-12 items-center justify-center rounded-lg bg-bg-secondary font-semibold ${className}`}>
       {initials}
+    </div>
+  );
+}
+
+export function ImageUploadField({
+  label,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  hint?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const pick = async (file: File) => {
+    setUploading(true);
+    setError(false);
+    try {
+      const { url } = await uploadFile(file);
+      onChange(url);
+    } catch {
+      setError(true);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-2 text-sm font-medium text-brown-dark">
+      <span>{label}</span>
+      <div className="flex items-center gap-3">
+        {value ? (
+          <img src={value} alt="" className="h-16 w-16 rounded-lg border border-brown-mid/20 object-cover" />
+        ) : (
+          <div className="h-16 w-16 rounded-lg border border-dashed border-brown-mid/30 bg-bg-secondary" />
+        )}
+        <div className="grid gap-1">
+          <label className="inline-flex w-fit cursor-pointer items-center rounded-lg border border-brown-mid/30 px-3 py-2 text-xs font-bold transition hover:bg-bg-secondary">
+            {uploading ? "Enviando..." : "Enviar imagem"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={uploading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void pick(file);
+              }}
+            />
+          </label>
+          <input
+            className="min-h-8 w-60 rounded-lg border border-brown-mid/20 bg-surface px-2 py-1 text-xs text-brown-mid placeholder:text-brown-mid/60"
+            placeholder="ou cole uma URL"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </div>
+      </div>
+      {error ? <span className="text-xs font-normal text-red-600">Não foi possível enviar a imagem.</span> : null}
+      {hint ? <span className="text-xs text-brown-mid">{hint}</span> : null}
     </div>
   );
 }

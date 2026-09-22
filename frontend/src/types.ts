@@ -219,7 +219,7 @@ export type AdminCrudItem = {
 export type AdminCrudField = {
   key: string;
   label: string;
-  type?: "text" | "number" | "textarea" | "select" | "datetime-local";
+  type?: "text" | "number" | "textarea" | "select" | "datetime-local" | "image";
   options?: string[];
 };
 

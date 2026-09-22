@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Badge, Button, Card, EmptyState, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
+import { Badge, Button, Card, EmptyState, ImageUploadField, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
 import { MiniBarChart, PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { useConfig } from "../../context/ConfigContext";
 import { useConfirm } from "../../context/ConfirmContext";
@@ -23,7 +23,7 @@ const fieldSets: Record<string, AdminCrudField[]> = {
     { key: "phone", label: "Telefone" },
     { key: "specialty", label: "Especialidade" },
     { key: "bio", label: "Bio", type: "textarea" },
-    { key: "photoUrl", label: "Foto URL" },
+    { key: "photoUrl", label: "Foto", type: "image" },
     { key: "defaultCommission", label: "Comissao padrao (%)", type: "number" },
     { key: "monthlyFixedPayment", label: "Pagamento fixo mensal", type: "number" },
     { key: "providesCare", label: "Atende pacientes", type: "select", options: ["true", "false"] },
@@ -83,7 +83,7 @@ const fieldSets: Record<string, AdminCrudField[]> = {
     { key: "subtitle", label: "Subtitulo", type: "textarea" },
     { key: "ctaText", label: "Texto CTA" },
     { key: "ctaUrl", label: "URL CTA" },
-    { key: "imageUrl", label: "Imagem URL" },
+    { key: "imageUrl", label: "Imagem", type: "image" },
     { key: "order", label: "Ordem", type: "number" },
     { key: "active", label: "Ativo", type: "select", options: ["true", "false"] },
   ],
@@ -205,6 +205,7 @@ function AdminCrudPage({
             const value = draft[field.key] ?? "";
             const onChange = (next: string) => setDraft((current) => ({ ...current, [field.key]: next }));
             if (field.type === "textarea") return <Textarea key={field.key} label={field.label} value={value} onChange={(event) => onChange(event.target.value)} />;
+            if (field.type === "image") return <ImageUploadField key={field.key} label={field.label} value={value} onChange={onChange} />;
             if (field.type === "select") {
               return (
                 <Select key={field.key} label={field.label} value={value} onChange={(event) => onChange(event.target.value)}>
@@ -377,8 +378,8 @@ export function AdminAboutConfig() {
             </div>
             <div className="mt-4 grid gap-3">
               {draft.about.gallery.map((imageUrl, index) => (
-                <div key={`${imageUrl}-${index}`} className="grid gap-3 md:grid-cols-[1fr_auto]">
-                  <Input label="Imagem URL" value={imageUrl} onChange={(event) => setGalleryImage(index, event.target.value)} />
+                <div key={`${imageUrl}-${index}`} className="flex flex-wrap items-end gap-3">
+                  <ImageUploadField label={`Foto ${index + 1}`} value={imageUrl} onChange={(next) => setGalleryImage(index, next)} />
                   <Button type="button" variant="ghost" onClick={() => removeGalleryImage(index)}>Remover</Button>
                 </div>
               ))}
@@ -413,7 +414,7 @@ export function AdminDesignConfig() {
         <Card>
           <form className="grid gap-4" onSubmit={save}>
             <Input label="Nome da clinica" value={draft.clinicName} onChange={(event) => setDraft({ ...draft, clinicName: event.target.value })} />
-            <Input label="Logo URL" value={draft.logoUrl} onChange={(event) => setDraft({ ...draft, logoUrl: event.target.value })} />
+            <ImageUploadField label="Logo" value={draft.logoUrl} onChange={(next) => setDraft({ ...draft, logoUrl: next })} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Input label="Cor primaria" type="color" value={draft.theme.primary} onChange={(event) => setTheme("primary", event.target.value)} />
               <Input label="Cor de acento" type="color" value={draft.theme.primaryLight} onChange={(event) => setTheme("primaryLight", event.target.value)} />
@@ -532,7 +533,7 @@ export function AdminContactConfig() {
           <div className="grid gap-4">
             <Input label="Título (aba do navegador)" placeholder={draft.clinicName} value={draft.seo.title} onChange={(event) => setDraft({ ...draft, seo: { ...draft.seo, title: event.target.value } })} />
             <Textarea label="Descrição" value={draft.seo.description} onChange={(event) => setDraft({ ...draft, seo: { ...draft.seo, description: event.target.value } })} />
-            <Input label="Imagem de compartilhamento (URL)" value={draft.seo.ogImageUrl} onChange={(event) => setDraft({ ...draft, seo: { ...draft.seo, ogImageUrl: event.target.value } })} />
+            <ImageUploadField label="Imagem de compartilhamento" value={draft.seo.ogImageUrl} onChange={(next) => setDraft({ ...draft, seo: { ...draft.seo, ogImageUrl: next } })} hint="Aparece ao compartilhar o link do site (WhatsApp, redes sociais)." />
           </div>
         </Card>
 
