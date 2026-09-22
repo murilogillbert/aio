@@ -146,14 +146,14 @@ export function Modal({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] grid place-items-end bg-brown-dark/40 p-4 sm:place-items-center" role="dialog" aria-modal="true">
-      <div className="w-full max-w-xl rounded-xl bg-surface p-5 shadow-soft">
-        <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-xl bg-surface shadow-soft">
+        <div className="flex items-center justify-between gap-4 border-b border-brown-mid/15 p-5">
           <h2 className="font-heading text-2xl font-bold">{title}</h2>
           <Button variant="ghost" onClick={onClose}>
             Fechar
           </Button>
         </div>
-        {children}
+        <div className="overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );

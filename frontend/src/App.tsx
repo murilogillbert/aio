@@ -4,6 +4,8 @@ import {
   CalendarDays,
   ClipboardList,
   Cog,
+  DoorOpen,
+  HeartHandshake,
   HomeIcon,
   LayoutDashboard,
   MessageCircle,
@@ -11,8 +13,10 @@ import {
   ReceiptText,
   Settings,
   Stethoscope,
+  Tags,
   UserRound,
   UsersRound,
+  Wrench,
 } from "lucide-react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Footer } from "./components/Footer";
@@ -131,6 +135,10 @@ const adminLinks: SidebarLink[] = [
   { to: "/admin/usuarios", label: "Usuários & papéis", icon: <UserRound className="h-4 w-4" /> },
   { to: "/admin/profissionais", label: "Profissionais", icon: <UsersRound className="h-4 w-4" /> },
   { to: "/admin/servicos", label: "Serviços", icon: <Stethoscope className="h-4 w-4" /> },
+  { to: "/admin/configuracoes/categorias", label: "Categorias", icon: <Tags className="h-4 w-4" /> },
+  { to: "/admin/configuracoes/planos", label: "Convênios", icon: <HeartHandshake className="h-4 w-4" /> },
+  { to: "/admin/configuracoes/salas", label: "Salas", icon: <DoorOpen className="h-4 w-4" /> },
+  { to: "/admin/configuracoes/equipamentos", label: "Equipamentos", icon: <Wrench className="h-4 w-4" /> },
   { to: "/admin/recrutamento", label: "Recrutamento", icon: <BriefcaseBusiness className="h-4 w-4" /> },
   { to: "/admin/configuracoes/design", label: "Design", icon: <Palette className="h-4 w-4" /> },
   { to: "/admin/configuracoes/contato", label: "Contato & SEO", icon: <HomeIcon className="h-4 w-4" /> },
