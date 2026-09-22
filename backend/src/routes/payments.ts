@@ -165,14 +165,21 @@ router.post(
     });
 
     if (isConfirmed) {
-      const { commissionAmount, commissionPct } = await computeCommission(
+      const { commissionAmount, commissionPct, taxPercent, netAmount } = await computeCommission(
         appointment.professionalId,
         appointment.serviceId,
         amount,
         Number(appointment.professional.defaultCommissionPercent),
       );
       await prisma.commission.create({
-        data: { appointmentId: appointment.id, professionalId: appointment.professionalId, amount: commissionAmount, percent: commissionPct },
+        data: {
+          appointmentId: appointment.id,
+          professionalId: appointment.professionalId,
+          amount: commissionAmount,
+          percent: commissionPct,
+          taxPercent,
+          netAmount,
+        },
       });
     }
 

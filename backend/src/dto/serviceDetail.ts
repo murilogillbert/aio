@@ -34,6 +34,8 @@ export const toServiceDetailDto = (service: ServiceDetailRow) => ({
     professionalId: ps.professionalId,
     compensationType: ps.compensationType,
     compensationValue: ps.compensationValue ? Number(ps.compensationValue) : null,
+    commissionTaxMode: ps.commissionTaxMode,
+    commissionTaxPercent: ps.commissionTaxPercent ? Number(ps.commissionTaxPercent) : null,
   })),
   roomIds: service.roomServices.map((rs) => rs.roomId),
   equipments: service.serviceEquipments.map((se) => ({ equipmentId: se.equipmentId, required: se.required })),
@@ -54,6 +56,9 @@ export const findServiceDetail = async (id: string) => {
 const normalizeCompensationType = (value: string) =>
   value === "custom_percent" || value === "fixed_value" ? value : "default_commission";
 
+const normalizeCommissionTaxMode = (value?: string) =>
+  value === "service" || value === "custom" ? value : "none";
+
 export type ServiceUpsertBody = {
   name: string;
   shortDescription: string;
@@ -70,7 +75,13 @@ export type ServiceUpsertBody = {
   isActive: boolean;
   featured: boolean;
   categoryIds: string[];
-  professionals: { professionalId: string; compensationType: string; compensationValue?: number | null }[];
+  professionals: {
+    professionalId: string;
+    compensationType: string;
+    compensationValue?: number | null;
+    commissionTaxMode?: string;
+    commissionTaxPercent?: number | null;
+  }[];
   roomIds: string[];
   equipments: { equipmentId: string; required: boolean }[];
   taxes: { id?: string; name: string; percent: number }[];
@@ -107,11 +118,14 @@ const replaceRelations = async (serviceId: string, body: ServiceUpsertBody) => {
     await prisma.professionalService.createMany({
       data: [...professionals.values()].map((p) => {
         const compensationType = normalizeCompensationType(p.compensationType);
+        const commissionTaxMode = normalizeCommissionTaxMode(p.commissionTaxMode);
         return {
           serviceId,
           professionalId: p.professionalId,
           compensationType,
           compensationValue: compensationType === "default_commission" ? null : p.compensationValue ?? null,
+          commissionTaxMode,
+          commissionTaxPercent: commissionTaxMode === "custom" ? p.commissionTaxPercent ?? null : null,
         };
       }),
     });

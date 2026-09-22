@@ -281,12 +281,14 @@ model ServiceCategory {
 }
 
 model ProfessionalService {
-  professionalId    String
-  professional      Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  serviceId         String
-  service           Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  compensationType  String       @default("default_commission")
-  compensationValue Decimal?     @db.Decimal(12, 2)
+  professionalId       String
+  professional         Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  serviceId            String
+  service              Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  compensationType     String       @default("default_commission")
+  compensationValue    Decimal?     @db.Decimal(12, 2)
+  commissionTaxMode    String       @default("none") // "none" | "service" | "custom"
+  commissionTaxPercent Decimal?     @db.Decimal(5, 2)
 
   @@id([professionalId, serviceId])
 }
@@ -561,6 +563,8 @@ model Commission {
   professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Restrict)
   amount         Decimal      @default(0) @db.Decimal(12, 2)
   percent        Decimal      @default(0) @db.Decimal(5, 2)
+  taxPercent     Decimal      @default(0) @db.Decimal(5, 2)
+  netAmount      Decimal      @default(0) @db.Decimal(12, 2)
 }
 
 model ServiceTax {

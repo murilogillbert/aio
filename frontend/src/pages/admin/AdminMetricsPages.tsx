@@ -179,8 +179,11 @@ export function AdminFaturamentoPage() {
                   <p className="text-xs text-brown-mid">{payout.specialty} · {payout.appointments} atendimentos</p>
                 </div>
                 <div className="text-right">
-                  <strong>{currency(payout.net)}</strong>
+                  <strong>{currency(payout.netAfterTax)}</strong>
                   <p className="text-xs text-brown-mid">{payout.commissionPct.toFixed(1)}% bruto {currency(payout.gross)}</p>
+                  {payout.netAfterTax !== payout.net ? (
+                    <p className="text-xs text-brown-mid">Comissão bruta {currency(payout.net)} (com imposto retido)</p>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -232,7 +235,11 @@ export function AdminMetricasProfissionaisPage() {
             <div className="mt-3 grid gap-2 text-sm md:grid-cols-4">
               <div><span className="text-xs text-brown-mid">Atendimentos</span><p className="font-bold">{entry.appointments} <span className="text-xs text-brown-mid">({entry.completedCount} concluídos)</span></p></div>
               <div><span className="text-xs text-brown-mid">Receita</span><p className="font-bold">{currency(entry.revenue)}</p></div>
-              <div><span className="text-xs text-brown-mid">Repasse</span><p className="font-bold">{currency(entry.netPayout)} <span className="text-xs text-brown-mid">({entry.commissionPct.toFixed(1)}%)</span></p></div>
+              <div>
+                <span className="text-xs text-brown-mid">Repasse líquido</span>
+                <p className="font-bold">{currency(entry.netPayout)} <span className="text-xs text-brown-mid">({entry.commissionPct.toFixed(1)}%)</span></p>
+                {entry.netPayout !== entry.grossPayout ? <p className="text-xs text-brown-mid">Bruto {currency(entry.grossPayout)}</p> : null}
+              </div>
               <div><span className="text-xs text-brown-mid">Ticket médio</span><p className="font-bold">{currency(entry.ticket)}</p></div>
               <div><span className="text-xs text-brown-mid">Ocupação</span><p className="font-bold">{entry.occupancy}%</p></div>
               <div><span className="text-xs text-brown-mid">Cancelamento</span><p className="font-bold">{entry.cancellationRate}%</p></div>

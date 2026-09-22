@@ -823,7 +823,11 @@ function PaymentModal({ appointment, services, onClose, onPaid }: { appointment:
     setPaying(true);
     try {
       const result = await payAppointment(appointment.id, Number(amount), method, methodDetail.trim() || undefined);
-      showToast("success", `${result.message} Comissão ${currency(result.commissionAmount)} (${result.commissionPct.toFixed(1)}%)`);
+      const commissionLabel =
+        result.taxPercent > 0
+          ? `Comissão líquida ${currency(result.netAmount)} (bruta ${currency(result.commissionAmount)}, ${result.commissionPct.toFixed(1)}% − ${result.taxPercent.toFixed(1)}% imposto)`
+          : `Comissão ${currency(result.commissionAmount)} (${result.commissionPct.toFixed(1)}%)`;
+      showToast("success", `${result.message} ${commissionLabel}`);
       await onPaid();
     } catch {
       showToast("error", "Não foi possível registrar o pagamento.");

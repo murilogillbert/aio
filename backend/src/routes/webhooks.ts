@@ -33,7 +33,7 @@ router.post(
           include: { professional: true },
         });
         if (appointment) {
-          const { commissionAmount, commissionPct } = await computeCommission(
+          const { commissionAmount, commissionPct, taxPercent, netAmount } = await computeCommission(
             appointment.professionalId,
             appointment.serviceId,
             Number(existing.grossAmount),
@@ -42,7 +42,14 @@ router.post(
           const hasCommission = await prisma.commission.findFirst({ where: { appointmentId: appointment.id } });
           if (!hasCommission) {
             await prisma.commission.create({
-              data: { appointmentId: appointment.id, professionalId: appointment.professionalId, amount: commissionAmount, percent: commissionPct },
+              data: {
+                appointmentId: appointment.id,
+                professionalId: appointment.professionalId,
+                amount: commissionAmount,
+                percent: commissionPct,
+                taxPercent,
+                netAmount,
+              },
             });
           }
         }

@@ -225,10 +225,14 @@ export type AdminCrudField = {
 
 export type ServiceCompensationType = "default_commission" | "custom_percent" | "fixed_value";
 
+export type CommissionTaxMode = "none" | "service" | "custom";
+
 export type ServiceProfessional = {
   professionalId: string;
   compensationType: ServiceCompensationType;
   compensationValue?: number | null;
+  commissionTaxMode?: CommissionTaxMode;
+  commissionTaxPercent?: number | null;
 };
 
 export type ServiceEquipmentLink = {
@@ -359,7 +363,7 @@ export type MetricsFaturamento = {
   byOrigin: { label: string; value: number }[];
   byPlan: { label: string; value: number }[];
   custosByCategory: { label: string; value: number }[];
-  payouts: { professionalId: string; name: string; specialty: string; appointments: number; gross: number; commissionPct: number; net: number }[];
+  payouts: { professionalId: string; name: string; specialty: string; appointments: number; gross: number; commissionPct: number; net: number; netAfterTax: number }[];
   monthlyRevenue: { month: string; revenue: number; payout: number; custos: number; netRevenue: number }[];
 };
 
@@ -373,6 +377,7 @@ export type ProfessionalMetric = {
   noShowCount: number;
   occupancy: number;
   revenue: number;
+  grossPayout: number;
   netPayout: number;
   commissionPct: number;
   ticket: number;

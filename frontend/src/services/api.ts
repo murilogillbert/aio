@@ -242,7 +242,7 @@ export const deleteFutureAppointments = (id: string) =>
 export const checkinAppointment = (id: string) =>
   request<{ ok: boolean; message: string }>(`/agendamentos/${id}/checkin`, { method: "POST" });
 export const payAppointment = (id: string, amount: number, method: string, methodDetail?: string, paidBeforeCompletion = false) =>
-  request<{ paymentId: string; commissionAmount: number; commissionPct: number; message: string }>(`/agendamentos/${id}/pagamento`, {
+  request<{ paymentId: string; commissionAmount: number; commissionPct: number; taxPercent: number; netAmount: number; message: string }>(`/agendamentos/${id}/pagamento`, {
     method: "POST",
     body: JSON.stringify({ amount, method, methodDetail, paidBeforeCompletion }),
   });

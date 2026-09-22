@@ -14,6 +14,7 @@ import {
   updateAdminService,
 } from "../../services/api";
 import type {
+  CommissionTaxMode,
   ServiceCompensationType,
   ServiceDetail,
   ServicePlanLink,
@@ -281,6 +282,24 @@ function ProfessionalsTab({ draft, setDraft, references }: TabProps) {
     });
   };
 
+  const setTaxMode = (id: string, mode: CommissionTaxMode) => {
+    setDraft({
+      ...draft,
+      professionals: selected.map((entry) =>
+        entry.professionalId === id
+          ? { ...entry, commissionTaxMode: mode, commissionTaxPercent: mode === "custom" ? entry.commissionTaxPercent ?? 0 : entry.commissionTaxPercent }
+          : entry,
+      ),
+    });
+  };
+
+  const setTaxValue = (id: string, value: number) => {
+    setDraft({
+      ...draft,
+      professionals: selected.map((entry) => (entry.professionalId === id ? { ...entry, commissionTaxPercent: value } : entry)),
+    });
+  };
+
   return (
     <div className="grid gap-3">
       <p className="text-sm text-brown-mid">Selecione quais profissionais podem realizar este serviço. Para cada um, escolha a regra de remuneração: comissão padrão (cadastrada no perfil), comissão personalizada em % ou valor fixo em R$.</p>
@@ -319,6 +338,25 @@ function ProfessionalsTab({ draft, setDraft, references }: TabProps) {
                       min={0}
                       value={selectedEntry.compensationValue ?? 0}
                       onChange={(event) => setValue(professional.id, Number(event.target.value || 0))}
+                    />
+                  ) : null}
+                  <Select
+                    label="Imposto sobre a comissão"
+                    value={selectedEntry.commissionTaxMode ?? "none"}
+                    onChange={(event) => setTaxMode(professional.id, event.target.value as CommissionTaxMode)}
+                  >
+                    <option value="none">Nenhum</option>
+                    <option value="service">Usar imposto do serviço</option>
+                    <option value="custom">Imposto próprio (%)</option>
+                  </Select>
+                  {selectedEntry.commissionTaxMode === "custom" ? (
+                    <Input
+                      label="% de imposto"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={selectedEntry.commissionTaxPercent ?? 0}
+                      onChange={(event) => setTaxValue(professional.id, Number(event.target.value || 0))}
                     />
                   ) : null}
                 </div>

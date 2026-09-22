@@ -338,7 +338,7 @@ router.post(
     if (!appointment) throw notFound("Agendamento não encontrado.");
     if (appointment.payment) throw badRequest("Este agendamento já possui pagamento registrado.");
 
-    const { commissionAmount, commissionPct } = await computeCommission(
+    const { commissionAmount, commissionPct, taxPercent, netAmount } = await computeCommission(
       appointment.professionalId,
       appointment.serviceId,
       amount,
@@ -354,6 +354,8 @@ router.post(
         professionalId: appointment.professionalId,
         amount: commissionAmount,
         percent: commissionPct,
+        taxPercent,
+        netAmount,
       },
     });
     await prisma.movementLog.create({
@@ -364,7 +366,7 @@ router.post(
     });
     await notifyAdminsPaymentConfirmed(appointment.id, amount);
 
-    res.json({ paymentId: payment.id, commissionAmount, commissionPct, message: "Pagamento registrado com sucesso." });
+    res.json({ paymentId: payment.id, commissionAmount, commissionPct, taxPercent, netAmount, message: "Pagamento registrado com sucesso." });
   }),
 );
 

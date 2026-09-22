@@ -276,7 +276,7 @@ router.get(
       custosByCategory.set(label, (custosByCategory.get(label) ?? 0) + Number(c.value));
     });
 
-    const payoutByProfessional = new Map<string, { professionalId: string; name: string; specialty: string; appointments: number; gross: number; pctSum: number; net: number }>();
+    const payoutByProfessional = new Map<string, { professionalId: string; name: string; specialty: string; appointments: number; gross: number; pctSum: number; net: number; netAfterTax: number }>();
     commissions.forEach((c) => {
       const entry = payoutByProfessional.get(c.professionalId) ?? {
         professionalId: c.professionalId,
@@ -286,11 +286,13 @@ router.get(
         gross: 0,
         pctSum: 0,
         net: 0,
+        netAfterTax: 0,
       };
       entry.appointments += 1;
       entry.gross += c.appointment.payment ? Number(c.appointment.payment.grossAmount) : 0;
       entry.pctSum += Number(c.percent);
       entry.net += Number(c.amount);
+      entry.netAfterTax += Number(c.netAmount);
       payoutByProfessional.set(c.professionalId, entry);
     });
 
@@ -323,6 +325,7 @@ router.get(
         gross: p.gross,
         commissionPct: p.appointments > 0 ? Math.round((p.pctSum / p.appointments) * 100) / 100 : 0,
         net: p.net,
+        netAfterTax: p.netAfterTax,
       })),
       monthlyRevenue: snapshots.map((s) => ({
         month: s.monthLabel,
@@ -352,7 +355,8 @@ const computeProfessionalMetric = async (
   const cancelledCount = appointments.filter((a) => a.status === "Cancelado").length;
   const noShowCount = appointments.filter((a) => a.status === "NaoCompareceu").length;
   const revenue = appointments.reduce((sum, a) => sum + (a.payment ? Number(a.payment.grossAmount) : 0), 0);
-  const netPayout = commissions.reduce((sum, c) => sum + Number(c.amount), 0);
+  const grossPayout = commissions.reduce((sum, c) => sum + Number(c.amount), 0);
+  const netPayout = commissions.reduce((sum, c) => sum + Number(c.netAmount), 0);
   const minutesWorked = appointments
     .filter((a) => a.status !== "Cancelado")
     .reduce((sum, a) => sum + a.service.durationMinutes, 0);
@@ -378,6 +382,7 @@ const computeProfessionalMetric = async (
     noShowCount,
     occupancy,
     revenue,
+    grossPayout,
     netPayout,
     commissionPct:
       commissions.length > 0
