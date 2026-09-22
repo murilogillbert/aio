@@ -26,6 +26,8 @@ import type {
   PatientUpsert,
   Professional,
   ProfessionalMetric,
+  ProfessionalScheduleSlot,
+  ProfessionalScheduleUpsert,
   RecurrenceResult,
   Service,
   ServiceDetail,
@@ -273,6 +275,16 @@ export const listBlocks = (professionalId?: string, start?: string, end?: string
 export const createBlock = (body: BlockUpsert) =>
   request<Block>("/bloqueios", { method: "POST", body: JSON.stringify(body) });
 export const deleteBlock = (id: string) => request<void>(`/bloqueios/${id}`, { method: "DELETE" });
+
+// ─── Horários de atendimento ──────────────────────────────────────────────────
+export const listProfessionalSchedules = (professionalId?: string) => {
+  const params = new URLSearchParams();
+  if (professionalId) params.set("professionalId", professionalId);
+  return request<ProfessionalScheduleSlot[]>(`/horarios${params.toString() ? `?${params}` : ""}`);
+};
+export const createProfessionalSchedule = (body: ProfessionalScheduleUpsert) =>
+  request<ProfessionalScheduleSlot>("/horarios", { method: "POST", body: JSON.stringify(body) });
+export const deleteProfessionalSchedule = (id: string) => request<void>(`/horarios/${id}`, { method: "DELETE" });
 
 // Medical records
 export const getMedicalRecord = (patientId: string) =>

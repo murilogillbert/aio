@@ -510,6 +510,9 @@ export type PatientCreateResult = { patient: PatientRich; generatedPassword: str
 export type Block = { id: string; professionalId: string; startAt: string; endAt: string; reason: string };
 export type BlockUpsert = { professionalId: string; startAt: string; endAt: string; reason: string };
 
+export type ProfessionalScheduleSlot = { id: string; professionalId: string; weekday: number; startTime: string; endTime: string };
+export type ProfessionalScheduleUpsert = { professionalId: string; weekday: number; startTime: string; endTime: string };
+
 export type MedicalRecord = {
   id: string;
   patientId: string;

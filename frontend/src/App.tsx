@@ -3,6 +3,7 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   ClipboardList,
+  Clock,
   Cog,
   DoorOpen,
   HeartHandshake,
@@ -54,6 +55,7 @@ import {
   ReceptionMedicalRecordPage,
   SessionNoteEditorPage,
 } from "./pages/shared/MedicalRecordPages";
+import { ProfessionalSchedulesPage } from "./pages/shared/ProfessionalSchedulesPage";
 import {
   ReceptionAgenda,
   ReceptionDashboard,
@@ -128,6 +130,7 @@ const receptionLinks: SidebarLink[] = [
   { to: "/recepcao/mensagens", label: "Mensagens", icon: <MessageCircle className="h-4 w-4" /> },
   { to: "/recepcao/servicos", label: "Serviços", icon: <Stethoscope className="h-4 w-4" /> },
   { to: "/recepcao/profissionais", label: "Profissionais", icon: <UsersRound className="h-4 w-4" /> },
+  { to: "/recepcao/horarios", label: "Horários", icon: <Clock className="h-4 w-4" /> },
 ];
 
 const adminLinks: SidebarLink[] = [
@@ -139,6 +142,7 @@ const adminLinks: SidebarLink[] = [
   { to: "/admin/configuracoes/planos", label: "Convênios", icon: <HeartHandshake className="h-4 w-4" /> },
   { to: "/admin/configuracoes/salas", label: "Salas", icon: <DoorOpen className="h-4 w-4" /> },
   { to: "/admin/configuracoes/equipamentos", label: "Equipamentos", icon: <Wrench className="h-4 w-4" /> },
+  { to: "/admin/horarios", label: "Horários", icon: <Clock className="h-4 w-4" /> },
   { to: "/admin/recrutamento", label: "Recrutamento", icon: <BriefcaseBusiness className="h-4 w-4" /> },
   { to: "/admin/configuracoes/design", label: "Design", icon: <Palette className="h-4 w-4" /> },
   { to: "/admin/configuracoes/contato", label: "Contato & SEO", icon: <HomeIcon className="h-4 w-4" /> },
@@ -203,6 +207,7 @@ export default function App() {
           <Route path="/recepcao/mensagens" element={<ReceptionMessages />} />
           <Route path="/recepcao/servicos" element={<ReceptionServices />} />
           <Route path="/recepcao/profissionais" element={<ReceptionProfessionals />} />
+          <Route path="/recepcao/horarios" element={<ProfessionalSchedulesPage />} />
         </Route>
       </Route>
 
@@ -220,6 +225,7 @@ export default function App() {
           <Route path="/admin/configuracoes/categorias" element={<AdminSimpleConfig resource="categorias" title="Categorias" description="Categorias usadas em profissionais, serviços, salas e equipamentos." />} />
           <Route path="/admin/configuracoes/salas" element={<AdminSimpleConfig resource="salas" title="Salas" description="Tipos compatíveis, equipamentos, capacidade e observações." />} />
           <Route path="/admin/configuracoes/equipamentos" element={<AdminSimpleConfig resource="equipamentos" title="Equipamentos" description="Categoria, salas, quantidade e valor unitário." />} />
+          <Route path="/admin/horarios" element={<ProfessionalSchedulesPage />} />
           <Route path="/admin/configuracoes/chat-interno" element={<AdminSimpleConfig resource="chat-interno" title="Chat interno" description="Canais e participantes por role ou usuário." />} />
           <Route path="/admin/configuracoes/contato" element={<AdminContactConfig />} />
           <Route path="/admin/configuracoes/sobre" element={<AdminAboutConfig />} />
