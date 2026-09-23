@@ -20,7 +20,7 @@ import {
   updateAppointment,
 } from "../../services/api";
 import type { AppointmentRich, PatientRich, Professional, Service } from "../../types";
-import { currency } from "../../utils";
+import { currency, dateLabel } from "../../utils";
 
 const TIME_SLOTS = [
   "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -63,9 +63,13 @@ function isoDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+// appt.startTime/endTime vêm do backend como "naive UTC" (ex.: "...T08:00:00.000Z" significa
+// literalmente 08:00, sem conversão de fuso — combineIso() no backend). Usar getHours()/getMinutes()
+// (hora local do navegador) aqui deslocaria o horário pelo fuso do usuário e faria o agendamento
+// sumir da grade sempre que o fuso não for UTC — por isso usa os getters UTC.
 function fmtTime(iso: string): string {
   const date = new Date(iso);
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
 }
 function durationMinutes(start: string, end: string): number {
   return Math.max(15, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000));
@@ -795,7 +799,7 @@ function AppointmentDrawer({ appointment, onClose, onEdit, onStatusChange, onCon
           </div>
           <div>
             <span className="text-xs uppercase tracking-wide text-brown-mid">Quando</span>
-            <p className="font-bold">{new Date(appointment.startTime).toLocaleString("pt-BR")}</p>
+            <p className="font-bold">{dateLabel(appointment.startTime.slice(0, 10))} às {appointment.startTime.slice(11, 16)}</p>
           </div>
           {appointment.roomName ? (
             <div><span className="text-xs uppercase tracking-wide text-brown-mid">Sala</span><p className="font-bold">{appointment.roomName}</p></div>

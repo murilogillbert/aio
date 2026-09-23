@@ -8,7 +8,7 @@ import { PaymentCheckout } from "../../components/PaymentCheckout";
 import { useAuth } from "../../context/AuthContext";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
-import { dateLabel } from "../../utils";
+import { dateLabel, naiveNowIso, todayLocalDate } from "../../utils";
 import { useAppointmentsRange } from "../../hooks/useAppointments";
 import {
   changePassword,
@@ -26,17 +26,17 @@ import type { SavedCard } from "../../services/api";
 import type { PatientDocument } from "../../services/api";
 import type { Dependent } from "../../types";
 
-const today = () => new Date().toISOString().slice(0, 10);
 const addDaysStr = (days: number) => {
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
 export function PatientDashboard() {
   const { user } = useAuth();
   const { appointments } = useAppointmentsRange(addDaysStr(-30), addDaysStr(180));
-  const upcoming = appointments.filter((item) => new Date(item.startTime) >= new Date() && item.status !== "Cancelado");
+  const upcoming = appointments.filter((item) => item.startTime >= naiveNowIso() && item.status !== "Cancelado");
 
   return (
     <>
@@ -113,7 +113,7 @@ export function PatientAppointments() {
       ) : (
         <div className="grid gap-3">
           {sorted.map((appointment) => {
-            const canManage = appointment.status !== "Cancelado" && appointment.status !== "Realizado" && new Date(appointment.startTime) > new Date();
+            const canManage = appointment.status !== "Cancelado" && appointment.status !== "Realizado" && appointment.startTime > naiveNowIso();
             return (
               <Card key={appointment.id}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -142,7 +142,7 @@ export function PatientAppointments() {
       )}
       <Modal open={Boolean(rescheduling)} title="Remarcar agendamento" onClose={() => setRescheduling(null)}>
         <form className="grid gap-4" onSubmit={submitReschedule}>
-          <Input label="Nova data" type="date" min={today()} value={newDate} onChange={(event) => setNewDate(event.target.value)} required />
+          <Input label="Nova data" type="date" min={todayLocalDate()} value={newDate} onChange={(event) => setNewDate(event.target.value)} required />
           <Input label="Novo horário" type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} required />
           <Button loading={saving}>Confirmar nova data</Button>
         </form>

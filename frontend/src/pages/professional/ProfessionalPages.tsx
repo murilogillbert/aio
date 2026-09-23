@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Avatar, Badge, Button, Card, EmptyState, Input, Select, Skeleton, Textarea } from "../../components/ui";
 import { MiniBarChart, PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { ChatPanel } from "../../components/ChatPanel";
-import { currency, dateLabel } from "../../utils";
+import { currency, dateLabel, naiveNowIso, todayLocalDate } from "../../utils";
 import { useAgendaSlots } from "../../hooks/useAgenda";
 import { useAppointmentsRange } from "../../hooks/useAppointments";
 import { useAuth } from "../../context/AuthContext";
@@ -18,13 +18,11 @@ import {
   uploadFile,
 } from "../../services/api";
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
-
 export function ProfessionalDashboard() {
-  const { appointments, loading, reload } = useAppointmentsRange(todayStr(), todayStr());
+  const { appointments, loading, reload } = useAppointmentsRange(todayLocalDate(), todayLocalDate());
   const { showToast } = useToast();
   const sorted = [...appointments].sort((a, b) => a.startTime.localeCompare(b.startTime));
-  const nextSlot = sorted.find((item) => new Date(item.startTime) >= new Date());
+  const nextSlot = sorted.find((item) => item.startTime >= naiveNowIso());
 
   const confirm = async (id: string) => {
     try {

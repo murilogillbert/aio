@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, Award, CheckCircle, Minus, Plug, TrendingDown, TrendingUp, XCircle } from "lucide-react";
 import { Badge, Card, Select, Skeleton } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
-import { currency } from "../../utils";
+import { currency, todayLocalDate } from "../../utils";
 import {
   getDashboard,
   getFaturamento,
@@ -128,7 +128,7 @@ export function AdminDashboardPage() {
           <div className="mt-3 grid gap-2">
             {data.upcoming.length === 0 ? <p className="text-sm text-brown-mid">Nenhuma consulta restante hoje.</p> : data.upcoming.map((entry) => (
               <div key={entry.appointmentId} className="rounded-lg bg-bg-secondary p-3 text-sm">
-                <div className="flex justify-between"><strong>{entry.patientName}</strong><span className="text-xs">{new Date(entry.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span></div>
+                <div className="flex justify-between"><strong>{entry.patientName}</strong><span className="text-xs">{entry.startTime.slice(11, 16)}</span></div>
                 <p className="text-xs text-brown-mid">{entry.service} com {entry.professionalName}</p>
               </div>
             ))}
@@ -291,8 +291,7 @@ export function AdminMetricasServicosPage() {
 // ─── Movimento ──────────────────────────────────────────────────────────────
 
 export function AdminMovimentoPage() {
-  const today = new Date().toISOString().slice(0, 10);
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(todayLocalDate());
   const [data, setData] = useState<MetricsMovimento | null>(null);
   useEffect(() => { void getMovimento(date).then(setData); }, [date]);
   if (!data) return <Skeleton className="h-72" />;

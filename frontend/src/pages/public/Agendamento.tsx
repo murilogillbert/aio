@@ -44,8 +44,21 @@ export function Agendamento() {
     });
   }, []);
 
+  // Limpa um serviço deixado no rascunho salvo (localStorage) que não é mais válido para o
+  // profissional atual — evita mostrar serviço/valor que o paciente não escolheu nesta sessão
+  // (ex.: veio de um link "agendar com este profissional" que só define professionalId).
   useEffect(() => {
-    getAgenda(draft.professionalId).then((data) => setSlots(data.filter((slot) => slot.available).slice(0, 24)));
+    if (!services.length || !professionals.length) return;
+    if (!draft.professionalId || !draft.serviceId) return;
+    const professional = professionals.find((item) => item.id === draft.professionalId);
+    if (professional && !professional.services.includes(draft.serviceId)) {
+      setDraft((current) => ({ ...current, serviceId: undefined, planId: undefined }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, professionals]);
+
+  useEffect(() => {
+    getAgenda(draft.professionalId).then((data) => setSlots(data.filter((slot) => slot.available)));
     localStorage.setItem(draftKey, JSON.stringify(draft));
   }, [draft]);
 
@@ -109,7 +122,7 @@ export function Agendamento() {
   }
 
   const selectedSlots = slots.filter((slot) => (draft.date ? slot.date === draft.date : true));
-  const uniqueDates = Array.from(new Set(slots.map((slot) => slot.date))).slice(0, 10);
+  const uniqueDates = Array.from(new Set(slots.map((slot) => slot.date)));
 
   return (
     <main className="route-fade mx-auto max-w-5xl px-4 py-8">

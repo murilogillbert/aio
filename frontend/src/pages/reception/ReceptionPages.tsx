@@ -13,7 +13,7 @@ import {
   updatePatient,
 } from "../../services/api";
 import type { PatientRich, PatientUpsert } from "../../types";
-import { currency, dateLabel } from "../../utils";
+import { currency, dateLabel, naiveNowIso, todayLocalDate } from "../../utils";
 import { useToast } from "../../context/ToastContext";
 import { useAppointmentsRange } from "../../hooks/useAppointments";
 import { useProfessionals, useServices } from "../../hooks/useCatalog";
@@ -25,7 +25,7 @@ export { ReceptionAgenda } from "./ReceptionAgenda";
 // ─── Dashboard ──────────────────────────────────────────────────────────────
 
 export function ReceptionDashboard() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalDate();
   const { movement: data, loading: loadingMovement, reload: reloadMovement } = useMovementMetrics(today, 60_000);
   const { appointments, loading: loadingAppointments, reload: reloadAppointments } = useAppointmentsRange(`${today}T00:00:00`, `${today}T23:59:59`);
   const loading = loadingMovement || loadingAppointments;
@@ -35,13 +35,13 @@ export function ReceptionDashboard() {
 
   if (loading || !data) return <Skeleton className="h-72" />;
 
-  const now = new Date();
+  const nowIso = naiveNowIso();
   const waiting = appointments
-    .filter((appt) => (appt.status === "Confirmado" || appt.status === "Agendado") && new Date(appt.startTime) <= now)
-    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    .filter((appt) => (appt.status === "Confirmado" || appt.status === "Agendado") && appt.startTime <= nowIso)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
     .slice(0, 6);
   const next = appointments
-    .filter((appt) => (appt.status === "Confirmado" || appt.status === "Agendado") && new Date(appt.startTime) > now)
+    .filter((appt) => (appt.status === "Confirmado" || appt.status === "Agendado") && appt.startTime > nowIso)
     .slice(0, 6);
 
   return (
@@ -59,7 +59,7 @@ export function ReceptionDashboard() {
           <p className="text-xs text-brown-mid">Pacientes com horário já passado e ainda não atendidos.</p>
           <div className="mt-3 grid gap-2">
             {waiting.length === 0 ? <p className="text-sm text-brown-mid">Ninguém esperando.</p> : waiting.map((appt) => {
-              const waitMinutes = Math.max(0, Math.floor((Date.now() - new Date(appt.startTime).getTime()) / 60000));
+              const waitMinutes = Math.max(0, Math.floor((new Date(nowIso).getTime() - new Date(appt.startTime).getTime()) / 60000));
               return (
                 <div key={appt.id} className="rounded-lg bg-bg-secondary p-3 text-sm">
                   <div className="flex items-center justify-between">
@@ -79,7 +79,7 @@ export function ReceptionDashboard() {
               <div key={appt.id} className="rounded-lg bg-bg-secondary p-3 text-sm">
                 <div className="flex items-center justify-between">
                   <strong>{appt.patientName}</strong>
-                  <span className="text-xs">{new Date(appt.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                  <span className="text-xs">{appt.startTime.slice(11, 16)}</span>
                 </div>
                 <p className="text-xs text-brown-mid">{appt.serviceName} com {appt.professionalName}</p>
               </div>
