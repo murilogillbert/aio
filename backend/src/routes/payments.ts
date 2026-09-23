@@ -86,7 +86,13 @@ router.post(
 
     const config = await asaasConfig();
     const asaasCustomerId = await ensureAsaasCustomer(config, patient, user!);
-    const amount = Number(appointment.service.basePrice);
+    let amount = Number(appointment.service.basePrice);
+    if (appointment.planId) {
+      const planService = await prisma.planService.findUnique({
+        where: { planId_serviceId: { planId: appointment.planId, serviceId: appointment.serviceId } },
+      });
+      if (planService?.customPrice) amount = Number(planService.customPrice);
+    }
     const dueDate = new Date().toISOString().slice(0, 10);
 
     if (body.method === "PIX") {

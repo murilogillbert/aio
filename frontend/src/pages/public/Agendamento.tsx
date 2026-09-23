@@ -51,6 +51,14 @@ export function Agendamento() {
 
   const selectedService = services.find((service) => service.id === draft.serviceId);
   const selectedProfessional = professionals.find((professional) => professional.id === draft.professionalId);
+  const selectedPlan = selectedService?.plans.find((plan) => plan.planId === draft.planId);
+  const displayPrice = selectedService
+    ? selectedPlan
+      ? selectedPlan.showPrice
+        ? currency(selectedPlan.customPrice ?? selectedService.priceFrom)
+        : "Consulte a cobertura"
+      : currency(selectedService.priceFrom)
+    : "A definir";
   const professionalOptions = useMemo(() => {
     if (!selectedService) return professionals;
     return professionals.filter((professional) => selectedService.professionalIds.includes(professional.id));
@@ -119,10 +127,26 @@ export function Agendamento() {
             <option value="">Todos</option>
             {professionalOptions.map((professional) => <option key={professional.id} value={professional.id}>{professional.name}</option>)}
           </Select>
-          <Select label="Serviço" value={draft.serviceId ?? ""} onChange={(event) => setDraft({ ...draft, serviceId: event.target.value })} required>
+          <Select
+            label="Serviço"
+            value={draft.serviceId ?? ""}
+            onChange={(event) => {
+              const serviceId = event.target.value || undefined;
+              const nextService = services.find((service) => service.id === serviceId);
+              const planStillValid = nextService && draft.planId ? nextService.plans.some((plan) => plan.planId === draft.planId) : false;
+              setDraft({ ...draft, serviceId, planId: planStillValid ? draft.planId : undefined });
+            }}
+            required
+          >
             <option value="">Selecione</option>
             {serviceOptions.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
           </Select>
+          {selectedService?.plans.length ? (
+            <Select label="Convênio" value={draft.planId ?? ""} onChange={(event) => setDraft({ ...draft, planId: event.target.value || undefined })}>
+              <option value="">Particular</option>
+              {selectedService.plans.map((plan) => <option key={plan.planId} value={plan.planId}>{plan.planName}</option>)}
+            </Select>
+          ) : null}
           <Select label="Data" value={draft.date ?? ""} onChange={(event) => setDraft({ ...draft, date: event.target.value, time: undefined })} required>
             <option value="">Selecione</option>
             {uniqueDates.map((date) => <option key={date} value={date}>{dateLabel(date)}</option>)}
@@ -142,7 +166,7 @@ export function Agendamento() {
           <h2 className="text-lg font-bold">Resumo</h2>
           <div className="mt-4 grid gap-3 text-sm text-brown-mid">
             <p>Serviço: <strong className="text-brown-dark">{selectedService?.name ?? "A definir"}</strong></p>
-            <p>Valor: <strong className="text-brown-dark">{selectedService ? currency(selectedService.priceFrom) : "A definir"}</strong></p>
+            <p>Valor: <strong className="text-brown-dark">{displayPrice}</strong></p>
             <p>Data: <strong className="text-brown-dark">{draft.date ? dateLabel(draft.date) : "A definir"}</strong></p>
             <p>Horário: <strong className="text-brown-dark">{draft.time ?? "A definir"}</strong></p>
           </div>

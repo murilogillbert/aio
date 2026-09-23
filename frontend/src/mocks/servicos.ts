@@ -13,6 +13,7 @@ export const servicesMock: Service[] = [
     professionalIds: ["pro-1", "pro-2"],
     roomIds: ["sala-1"],
     equipmentIds: ["eq-1"],
+    plans: [],
   },
   {
     id: "svc-2",
@@ -26,6 +27,7 @@ export const servicesMock: Service[] = [
     professionalIds: ["pro-1"],
     roomIds: ["sala-2"],
     equipmentIds: ["eq-2"],
+    plans: [],
   },
   {
     id: "svc-3",
@@ -39,6 +41,7 @@ export const servicesMock: Service[] = [
     professionalIds: ["pro-3"],
     roomIds: ["sala-3"],
     equipmentIds: ["eq-3"],
+    plans: [],
   },
   {
     id: "svc-4",
@@ -52,6 +55,7 @@ export const servicesMock: Service[] = [
     professionalIds: ["pro-3"],
     roomIds: ["sala-3"],
     equipmentIds: ["eq-4"],
+    plans: [],
   },
   {
     id: "svc-5",
@@ -65,6 +69,7 @@ export const servicesMock: Service[] = [
     professionalIds: ["pro-4"],
     roomIds: ["sala-1"],
     equipmentIds: [],
+    plans: [],
   },
   {
     id: "svc-6",
@@ -78,6 +83,7 @@ export const servicesMock: Service[] = [
     professionalIds: ["pro-4"],
     roomIds: ["sala-1"],
     equipmentIds: [],
+    plans: [],
   },
   {
     id: "svc-7",
@@ -91,6 +97,7 @@ export const servicesMock: Service[] = [
     professionalIds: ["pro-5"],
     roomIds: ["sala-4"],
     equipmentIds: [],
+    plans: [],
   },
   {
     id: "svc-8",
@@ -104,5 +111,6 @@ export const servicesMock: Service[] = [
     professionalIds: ["pro-5"],
     roomIds: ["sala-4"],
     equipmentIds: [],
+    plans: [],
   },
 ];

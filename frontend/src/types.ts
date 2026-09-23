@@ -63,6 +63,7 @@ export type Service = {
   roomIds: string[];
   equipmentIds: string[];
   featured?: boolean;
+  plans: { planId: string; planName: string; coverageRule: string; customPrice: number | null; showPrice: boolean }[];
 };
 
 export type Professional = {
@@ -206,6 +207,7 @@ export type BookingDraft = {
   date?: string;
   time?: string;
   patientTarget?: "self" | string;
+  planId?: string;
 };
 
 export type AdminCrudItem = {

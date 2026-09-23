@@ -11,6 +11,7 @@ const serviceInclude = {
   professionalServices: true,
   roomServices: true,
   serviceEquipments: true,
+  planServices: { include: { plan: true } },
 } as const;
 
 type ServiceWithRelations = Awaited<ReturnType<typeof prisma.service.findFirst<{ include: typeof serviceInclude }>>>;
@@ -27,6 +28,13 @@ const toServiceDto = (service: NonNullable<ServiceWithRelations>) => ({
   roomIds: service.roomServices.map((rs) => rs.roomId),
   equipmentIds: service.serviceEquipments.map((se) => se.equipmentId),
   featured: service.featured,
+  plans: service.planServices.map((ps) => ({
+    planId: ps.planId,
+    planName: ps.plan.name,
+    coverageRule: ps.coverageRule,
+    customPrice: ps.customPrice ? Number(ps.customPrice) : null,
+    showPrice: ps.showPrice,
+  })),
 });
 
 const professionalInclude = {

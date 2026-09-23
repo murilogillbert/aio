@@ -73,6 +73,7 @@ router.post(
       time?: string;
       patientTarget?: string;
       patientId?: string;
+      planId?: string;
     };
     if (!body.serviceId || !body.professionalId || !body.date || !body.time) {
       throw badRequest("Informe serviço, profissional, data e horário.");
@@ -91,12 +92,22 @@ router.post(
       dependentId = dependent.id;
     }
 
+    let planId: string | null = null;
+    if (body.planId) {
+      const planService = await prisma.planService.findUnique({
+        where: { planId_serviceId: { planId: body.planId, serviceId: body.serviceId } },
+      });
+      if (!planService) throw badRequest("Convênio não disponível para este serviço.");
+      planId = body.planId;
+    }
+
     const appointment = await prisma.appointment.create({
       data: {
         patientId: patient.id,
         dependentId,
         professionalId: body.professionalId,
         serviceId: body.serviceId,
+        planId,
         date: dateOnly(body.date),
         time: body.time,
         status: "Agendado",
