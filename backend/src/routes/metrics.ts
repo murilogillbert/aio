@@ -126,7 +126,7 @@ router.get(
     const minutesWorked = appointments
       .filter((a) => a.status !== "Cancelado")
       .reduce((sum, a) => sum + a.service.durationMinutes, 0);
-    const professionalCount = Math.max(1, await prisma.professional.count({ where: { providesCare: true } }));
+    const professionalCount = Math.max(1, await prisma.professional.count({ where: { providesCare: true, isActive: true } }));
     const occupancy = Math.min(
       100,
       Math.round((minutesWorked / estimateAvailableMinutes(range.days, professionalCount)) * 10000) / 100,

@@ -85,33 +85,32 @@ export const checkProfessionalBlockers = async (professionalId: string): Promise
     summary:
       `Este profissional possui ${appointments.length} agendamento(s) (${distinctPatients} paciente(s) diferentes), ` +
       `${sessionNotes} prontuário(s) de evolução e ${commissions} comissão(ões) vinculados. ` +
-      `Recomendamos desativar o profissional em vez de excluir, para preservar o histórico clínico e financeiro.`,
+      `Como há histórico, ele será arquivado em vez de excluído: os dados ficam preservados para auditoria e métricas, ` +
+      `mas o profissional some de toda a interface e não pode mais ser usado em novos agendamentos.`,
   };
 };
 
-// Sempre seguro de limpar antes de excluir um profissional: são só configuração de agenda,
-// sem valor histórico depois que o profissional deixa de existir.
+// Sempre seguro de limpar ao arquivar/excluir um profissional: são só configuração de
+// agenda futura, sem valor histórico depois que o profissional deixa de atender.
 const clearProfessionalSchedulingConfig = async (professionalId: string) => {
   await prisma.professionalSchedule.deleteMany({ where: { professionalId } });
   await prisma.professionalBlock.deleteMany({ where: { professionalId } });
 };
 
-export const deleteProfessionalCascade = async (professionalId: string) => {
+// Arquiva em vez de excluir: mantém agendamentos, prontuários, comissões e pagamentos
+// intactos (histórico clínico/financeiro real) para auditoria e métricas — só marca o
+// profissional (e a conta de login vinculada) como inativo e oculto do uso operacional.
+export const archiveProfessional = async (professionalId: string) => {
   await clearProfessionalSchedulingConfig(professionalId);
-  const appointments = await prisma.appointment.findMany({ where: { professionalId }, select: { id: true } });
-  for (const appointment of appointments) await cascadeDeleteAppointment(appointment.id);
-  // Comissões sem agendamento vinculado (não deveria acontecer, mas por segurança) e o profissional.
-  await prisma.commission.deleteMany({ where: { professionalId } });
-  const professional = await prisma.professional.findUnique({ where: { id: professionalId } });
-  await prisma.professional.delete({ where: { id: professionalId } });
-  if (professional?.userId) await prisma.user.update({ where: { id: professional.userId }, data: { isActive: false } });
+  const professional = await prisma.professional.update({ where: { id: professionalId }, data: { isActive: false } });
+  if (professional.userId) await prisma.user.update({ where: { id: professional.userId }, data: { isActive: false } });
 };
 
 export const deleteProfessionalSafe = async (professionalId: string, cascade: boolean) => {
   const blocked = await checkProfessionalBlockers(professionalId);
   if (blocked && !cascade) throw conflict(blocked.summary, blocked);
   if (blocked) {
-    await deleteProfessionalCascade(professionalId);
+    await archiveProfessional(professionalId);
     return;
   }
   await clearProfessionalSchedulingConfig(professionalId);
@@ -131,16 +130,23 @@ export const checkServiceBlockers = async (serviceId: string): Promise<BlockedSu
     summary:
       `Este serviço possui ${appointments.length} agendamento(s) (${distinctPatients} paciente(s) diferentes) vinculados, ` +
       `incluindo prontuários e comissões associados a eles. ` +
-      `Recomendamos desativar o serviço em vez de excluir, para preservar o histórico clínico e financeiro.`,
+      `Como há histórico, ele será arquivado em vez de excluído: os dados ficam preservados para auditoria e métricas, ` +
+      `mas o serviço some de toda a interface e não pode mais ser usado em novos agendamentos.`,
   };
+};
+
+// Arquiva em vez de excluir: mantém os agendamentos (e seus prontuários/comissões/pagamentos)
+// intactos, só marca o serviço como inativo e indisponível para agendamento online.
+export const archiveService = async (serviceId: string) => {
+  await prisma.service.update({ where: { id: serviceId }, data: { isActive: false, onlineBooking: false } });
 };
 
 export const deleteServiceSafe = async (serviceId: string, cascade: boolean) => {
   const blocked = await checkServiceBlockers(serviceId);
   if (blocked && !cascade) throw conflict(blocked.summary, blocked);
   if (blocked) {
-    const appointments = await prisma.appointment.findMany({ where: { serviceId }, select: { id: true } });
-    for (const appointment of appointments) await cascadeDeleteAppointment(appointment.id);
+    await archiveService(serviceId);
+    return;
   }
   await prisma.service.delete({ where: { id: serviceId } });
 };

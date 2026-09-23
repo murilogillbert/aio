@@ -37,7 +37,7 @@ router.get(
       prisma.room.findMany({ where: { isActive: true } }),
       prisma.equipment.findMany({ where: { isActive: true } }),
       prisma.plan.findMany(),
-      prisma.professional.findMany({ where: { providesCare: true } }),
+      prisma.professional.findMany({ where: { providesCare: true, isActive: true } }),
     ]);
 
     res.json({

@@ -114,28 +114,31 @@ function AdminCrudPage({
   title,
   description,
   fields = fieldSets[resource] ?? [{ key: "name", label: "Nome" }],
+  hasArchive = false,
 }: {
   resource: string;
   title: string;
   description: string;
   fields?: AdminCrudField[];
+  hasArchive?: boolean;
 }) {
   const [items, setItems] = useState<AdminCrudItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<AdminCrudItem | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const { showToast } = useToast();
   const confirm = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await listAdminCrud(resource));
+      setItems(await listAdminCrud(resource, hasArchive && showArchived));
     } finally {
       setLoading(false);
     }
-  }, [resource]);
+  }, [resource, hasArchive, showArchived]);
 
   useEffect(() => {
     void load();
@@ -191,30 +194,53 @@ function AdminCrudPage({
     }
   };
 
+  const reactivate = async (item: AdminCrudItem) => {
+    try {
+      await updateAdminCrud(resource, item.id, { ...item.fields, isActive: "true" });
+      showToast("success", "Registro reativado.");
+      await load();
+    } catch {
+      showToast("error", "Nao foi possivel reativar.");
+    }
+  };
+
   return (
     <>
       <PageHeader title={title} description={description} actions={<Button onClick={() => openForm()}>Adicionar</Button>} />
+      {hasArchive ? (
+        <label className="mb-3 flex items-center gap-2 text-sm text-brown-mid">
+          <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+          Mostrar arquivados
+        </label>
+      ) : null}
       {loading ? (
         <Skeleton className="h-72" />
       ) : items.length === 0 ? (
         <EmptyState title="Nenhum registro cadastrado ainda." action={<Button onClick={() => openForm()}>Adicionar</Button>} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {items.map((item) => (
-            <Card key={item.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="font-bold">{item.title}</h2>
-                  <p className="mt-1 text-sm text-brown-mid">{item.subtitle || "Sem detalhe"}</p>
+          {items.map((item) => {
+            const archived = hasArchive && item.fields.isActive === "false";
+            return (
+              <Card key={item.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-bold">{item.title}</h2>
+                    <p className="mt-1 text-sm text-brown-mid">{item.subtitle || "Sem detalhe"}</p>
+                  </div>
+                  {archived ? <Badge tone="danger">Arquivado</Badge> : item.status ? <Badge>{item.status}</Badge> : null}
                 </div>
-                {item.status ? <Badge>{item.status}</Badge> : null}
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => openForm(item)}>Editar</Button>
-                <Button variant="ghost" onClick={() => remove(item)}>Excluir</Button>
-              </div>
-            </Card>
-          ))}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => openForm(item)}>Editar</Button>
+                  {archived ? (
+                    <Button variant="ghost" onClick={() => void reactivate(item)}>Reativar</Button>
+                  ) : (
+                    <Button variant="ghost" onClick={() => remove(item)}>Excluir</Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
       <Modal open={Boolean(editing) || Object.keys(draft).length > 0} title={editing ? "Editar registro" : "Novo registro"} onClose={() => { setEditing(null); setDraft({}); }}>
@@ -260,7 +286,14 @@ export function AdminDashboard() {
 }
 
 export function AdminProfessionals() {
-  return <AdminCrudPage resource="profissionais" title="Profissionais e equipe" description="Criar, editar e excluir profissionais, comissoes, perfis e dados operacionais." />;
+  return (
+    <AdminCrudPage
+      resource="profissionais"
+      title="Profissionais e equipe"
+      description="Criar, editar e excluir profissionais, comissoes, perfis e dados operacionais. Profissionais com historico (agendamentos, prontuarios, comissoes) sao arquivados em vez de excluidos — os dados ficam preservados para auditoria e metricas."
+      hasArchive
+    />
+  );
 }
 
 export function AdminServices() {

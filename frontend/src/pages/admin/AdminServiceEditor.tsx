@@ -160,6 +160,18 @@ export function AdminServiceEditor() {
     }
   };
 
+  const reactivate = async (item: ServiceSummary) => {
+    try {
+      const detail = await getAdminService(item.id);
+      const { id: _ignored, ...rest } = detail;
+      await updateAdminService(item.id, { ...rest, isActive: true, onlineBooking: true });
+      showToast("success", "Serviço reativado.");
+      await load();
+    } catch {
+      showToast("error", "Não foi possível reativar.");
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -188,7 +200,11 @@ export function AdminServiceEditor() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => void openEdit(item.id)}>Editar</Button>
-                <Button variant="ghost" onClick={() => void remove(item)}>Excluir</Button>
+                {item.isActive ? (
+                  <Button variant="ghost" onClick={() => void remove(item)}>Excluir</Button>
+                ) : (
+                  <Button variant="ghost" onClick={() => void reactivate(item)}>Reativar</Button>
+                )}
               </div>
             </Card>
           ))}

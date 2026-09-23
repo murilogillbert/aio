@@ -9,6 +9,7 @@ import {
   createConversation,
   createPatient,
   deletePatient,
+  reactivatePatient,
   updatePatient,
 } from "../../services/api";
 import type { PatientRich, PatientUpsert } from "../../types";
@@ -125,7 +126,8 @@ export function ReceptionPatients() {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const { patients: items, loading, reload: load } = usePatientsSearch(search);
+  const [showInactive, setShowInactive] = useState(false);
+  const { patients: items, loading, reload: load } = usePatientsSearch(search, showInactive);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<PatientUpsert>(emptyPatient);
@@ -207,6 +209,17 @@ export function ReceptionPatients() {
     navigate("/recepcao/mensagens");
   };
 
+  const reactivate = async (patient: PatientRich) => {
+    if (!(await confirm(`Reativar paciente ${patient.name}?`, { confirmLabel: "Reativar" }))) return;
+    try {
+      await reactivatePatient(patient.id);
+      showToast("success", "Paciente reativado.");
+      await load();
+    } catch {
+      showToast("error", "Falha ao reativar.");
+    }
+  };
+
   return (
     <>
       <PageHeader title="Pacientes" description="Cadastro com detecção de duplicidade por CPF, e-mail ou telefone." actions={<Button onClick={openCreate}><Plus className="h-4 w-4" />Novo paciente</Button>} />
@@ -217,6 +230,10 @@ export function ReceptionPatients() {
             <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-brown-mid" />
             <input className="min-h-11 w-full rounded-lg border border-brown-mid/25 bg-surface pl-8 pr-2 text-sm" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome, e-mail, CPF ou telefone" />
           </div>
+        </label>
+        <label className="mt-3 flex items-center gap-2 text-sm text-brown-mid">
+          <input type="checkbox" checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} />
+          Mostrar inativos (arquivados)
         </label>
       </Card>
       {loading ? <Skeleton className="h-72" /> : (
@@ -238,7 +255,11 @@ export function ReceptionPatients() {
                   <Button variant="secondary">Prontuario</Button>
                 </Link>
                 <Button variant="secondary" onClick={() => void message(patient)}><MessageCircle className="h-4 w-4" />Mensagem</Button>
-                <Button variant="ghost" onClick={() => void remove(patient)}>Inativar</Button>
+                {patient.isActive ? (
+                  <Button variant="ghost" onClick={() => void remove(patient)}>Inativar</Button>
+                ) : (
+                  <Button variant="ghost" onClick={() => void reactivate(patient)}>Reativar</Button>
+                )}
               </div>
             </Card>
           ))}

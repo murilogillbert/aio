@@ -52,7 +52,7 @@ const boolVal = (fields: Record<string, string>, key: string, fallback = false) 
   fields[key] === undefined ? fallback : fields[key] === "true";
 
 type ResourceHandler = {
-  list: () => Promise<AdminCrudItem[]>;
+  list: (includeInactive?: boolean) => Promise<AdminCrudItem[]>;
   create: (fields: Record<string, string>) => Promise<AdminCrudItem>;
   update: (id: string, fields: Record<string, string>) => Promise<void>;
   remove: (id: string, cascade?: boolean) => Promise<void>;
@@ -69,13 +69,16 @@ const attachCategory = async (serviceId: string, categoryName: string) => {
 
 const handlers: Record<string, ResourceHandler> = {
   profissionais: {
-    async list() {
-      const rows = await prisma.professional.findMany({ take: 500 });
+    async list(includeInactive = false) {
+      const rows = await prisma.professional.findMany({
+        where: includeInactive ? {} : { isActive: true },
+        take: 500,
+      });
       return rows.map((p) => ({
         id: p.id,
         title: p.name,
         subtitle: p.specialty,
-        status: p.providesCare ? "atende" : "administrativo",
+        status: !p.isActive ? "arquivado" : p.providesCare ? "atende" : "administrativo",
         fields: {
           name: p.name,
           email: p.email,

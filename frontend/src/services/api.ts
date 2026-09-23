@@ -184,7 +184,8 @@ export const getCandidaturas = () => request("/recrutamento/candidaturas");
 
 export const getUsuarios = () => request<Omit<User, "password">[]>("/admin/usuarios");
 
-export const listAdminCrud = (resource: string) => request<AdminCrudItem[]>(`/admin/crud/${resource}`);
+export const listAdminCrud = (resource: string, includeInactive = false) =>
+  request<AdminCrudItem[]>(`/admin/crud/${resource}${includeInactive ? "?includeInactive=true" : ""}`);
 
 export const createAdminCrud = (resource: string, fields: Record<string, string>) =>
   request<AdminCrudItem>(`/admin/crud/${resource}`, {
@@ -283,6 +284,7 @@ export const createPatient = (body: PatientUpsert, force = false) =>
 export const updatePatient = (id: string, body: PatientUpsert) =>
   request<PatientRich>(`/pacientes/${id}`, { method: "PUT", body: JSON.stringify(body) });
 export const deletePatient = (id: string) => request<void>(`/pacientes/${id}`, { method: "DELETE" });
+export const reactivatePatient = (id: string) => request<PatientRich>(`/pacientes/${id}/reativar`, { method: "POST" });
 
 // ─── Blocks ─────────────────────────────────────────────────────────────────
 export const listBlocks = (professionalId?: string, start?: string, end?: string) => {

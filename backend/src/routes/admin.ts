@@ -20,7 +20,7 @@ router.get(
 router.get(
   "/crud/:resource",
   asyncHandler(async (req, res) => {
-    res.json(await getHandler(req.params.resource).list());
+    res.json(await getHandler(req.params.resource).list(req.query.includeInactive === "true"));
   }),
 );
 

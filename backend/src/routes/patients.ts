@@ -196,7 +196,19 @@ router.delete(
     const existing = await prisma.patient.findUnique({ where: { id: req.params.id } });
     if (!existing) throw notFound("Paciente não encontrado.");
     await prisma.patient.update({ where: { id: existing.id }, data: { isActive: false } });
+    await prisma.user.update({ where: { id: existing.userId }, data: { isActive: false } });
     res.status(204).send();
+  }),
+);
+
+router.post(
+  "/:id/reativar",
+  asyncHandler(async (req, res) => {
+    const existing = await prisma.patient.findUnique({ where: { id: req.params.id }, include: { user: true } });
+    if (!existing) throw notFound("Paciente não encontrado.");
+    await prisma.patient.update({ where: { id: existing.id }, data: { isActive: true } });
+    if (existing.userId) await prisma.user.update({ where: { id: existing.userId }, data: { isActive: true } });
+    res.json(toPatientRich(await prisma.patient.findUniqueOrThrow({ where: { id: existing.id }, include: patientInclude })));
   }),
 );
 
