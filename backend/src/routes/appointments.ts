@@ -19,6 +19,53 @@ import { computeCommission } from "../lib/commission.js";
 const router = Router();
 router.use(requireAuth, requireRole("admin", "recepcao", "profissional", "paciente"));
 
+// Ao marcar como Realizado, credita o profissional automaticamente — sem depender da recepção cobrar depois.
+// appointment.payment é único por agendamento (constraint no schema), então isso nunca duplica um pagamento/comissão
+// já registrado antes (pago online, cobrado manualmente antes da conclusão etc.) — vira um no-op nesses casos.
+const autoRegisterCompletionPayment = async (appointmentId: string) => {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { service: true, professional: true, payment: true },
+  });
+  if (!appointment || appointment.payment) return;
+
+  let amount = Number(appointment.service.basePrice);
+  if (appointment.planId) {
+    const planService = await prisma.planService.findUnique({
+      where: { planId_serviceId: { planId: appointment.planId, serviceId: appointment.serviceId } },
+    });
+    if (planService?.customPrice) amount = Number(planService.customPrice);
+  }
+
+  const { commissionAmount, commissionPct, taxPercent, netAmount } = await computeCommission(
+    appointment.professionalId,
+    appointment.serviceId,
+    amount,
+    Number(appointment.professional.defaultCommissionPercent),
+  );
+
+  await prisma.payment.create({
+    data: { appointmentId: appointment.id, grossAmount: amount, method: "Automático", billingType: "AUTO", paidAt: new Date() },
+  });
+  await prisma.commission.create({
+    data: {
+      appointmentId: appointment.id,
+      professionalId: appointment.professionalId,
+      amount: commissionAmount,
+      percent: commissionPct,
+      taxPercent,
+      netAmount,
+    },
+  });
+  await prisma.movementLog.create({
+    data: {
+      eventType: "PAYMENT_CONFIRMED",
+      description: `Pagamento de ${amount} confirmado automaticamente ao concluir o agendamento ${appointment.id}`,
+    },
+  });
+  await notifyAdminsPaymentConfirmed(appointment.id, amount);
+};
+
 router.get(
   "/",
   asyncHandler(async (req, res) => {
@@ -255,6 +302,8 @@ router.patch(
         data: { eventType: "APPOINTMENT_CANCELLED", description: `Agendamento ${existing.id} cancelado` },
       });
       await notifyAppointmentCancelled(existing.id, data.cancellationSource as string | undefined);
+    } else if (status === "Realizado") {
+      await autoRegisterCompletionPayment(existing.id);
     }
 
     res.json(await findAppointmentRich(existing.id));

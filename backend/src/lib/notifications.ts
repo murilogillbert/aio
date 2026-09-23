@@ -32,6 +32,62 @@ export const notifyAppointmentCreated = async (appointmentId: string): Promise<v
   await sendEmailSilently({ to: recipients, subject: "Novo agendamento", html });
 };
 
+// Avisa a recepção e a administração, pelo canal interno de mensagens (não e-mail), sempre que
+// um paciente cria um novo agendamento. Só considera a primeira conta (mais antiga) de cada role,
+// conforme pedido — não é um broadcast para toda a equipe.
+export const notifyNewAppointmentInternally = async (appointmentId: string): Promise<void> => {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      patient: { include: { user: true } },
+      dependent: true,
+      professional: true,
+      service: true,
+      plan: true,
+    },
+  });
+  if (!appointment) return;
+
+  const [firstAdmin, firstRecepcao] = await Promise.all([
+    prisma.user.findFirst({ where: { userRoles: { some: { role: { name: "admin" } } } }, orderBy: { createdAt: "asc" } }),
+    prisma.user.findFirst({ where: { userRoles: { some: { role: { name: "recepcao" } } } }, orderBy: { createdAt: "asc" } }),
+  ]);
+  const recipientIds = Array.from(new Set([firstAdmin?.id, firstRecepcao?.id].filter((id): id is string => Boolean(id))));
+  if (recipientIds.length === 0) return;
+
+  const dateLabel = appointment.date.toISOString().slice(0, 10);
+  const patientName = appointment.dependent?.fullName ?? appointment.patient.user.fullName;
+  const body = [
+    "Novo agendamento criado pelo paciente.",
+    `Paciente: ${patientName}`,
+    `Data: ${dateLabel} às ${appointment.time}`,
+    `Convênio: ${appointment.plan?.name ?? "Particular"}`,
+    `Serviço: ${appointment.service.name}`,
+    `Profissional: ${appointment.professional.name}`,
+  ].join("\n");
+
+  let conversation = await prisma.conversation.findFirst({
+    where: { AND: recipientIds.map((userId) => ({ participants: { some: { userId } } })) },
+    include: { participants: true },
+  });
+  if (conversation && conversation.participants.length !== recipientIds.length) conversation = null;
+
+  if (!conversation) {
+    conversation = await prisma.conversation.create({
+      data: {
+        title: "Novos agendamentos",
+        channel: "Interno",
+        participants: { create: recipientIds.map((userId) => ({ userId })) },
+      },
+      include: { participants: true },
+    });
+  }
+
+  await prisma.message.create({
+    data: { conversationId: conversation.id, authorUserId: null, authorName: "Sistema", channel: "Interno", body },
+  });
+};
+
 export const notifyPatientRegistered = async (params: { email: string; fullName: string }): Promise<void> => {
   const html = `
     <div style="font-family: sans-serif; max-width: 480px;">
