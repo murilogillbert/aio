@@ -168,9 +168,9 @@ function NotesTimeline({ notes, canOpen }: { notes: SessionNote[]; canOpen: bool
             <p className="mt-3 rounded-lg bg-bg-secondary p-3 text-sm text-brown-mid">Conteudo clinico redigido para esta permissao.</p>
           ) : (
             <div className="mt-3 grid gap-2 text-sm">
-              {note.chiefComplaint ? <p><strong>Queixa:</strong> {note.chiefComplaint}</p> : null}
-              {note.assessment ? <p><strong>Avaliacao:</strong> {note.assessment}</p> : null}
-              {note.plan ? <p><strong>Plano:</strong> {note.plan}</p> : null}
+              {note.chiefComplaint ? <p><strong>Queixa/demanda:</strong> {note.chiefComplaint}</p> : null}
+              {note.assessment ? <p><strong>Impressão clínica:</strong> {note.assessment}</p> : null}
+              {note.plan ? <p><strong>Conduta terapêutica:</strong> {note.plan}</p> : null}
             </div>
           )}
           {canOpen ? <Link className="mt-3 inline-flex text-sm font-bold text-primary" to={`/profissional/agendamentos/${note.appointmentId}/evolucao`}>Abrir evolucao</Link> : null}
@@ -339,17 +339,16 @@ export function SessionNoteEditorPage() {
             <Badge tone={locked ? "success" : "warning"}>{locked ? "Assinada" : "Rascunho"}</Badge>
             <Link className="text-sm font-bold text-primary" to={`/profissional/pacientes/${note.patientId}/prontuario`}>Abrir prontuario do paciente</Link>
           </div>
-          <Textarea label="Queixa principal" value={form.chiefComplaint} disabled={locked} onChange={(event) => setForm({ ...form, chiefComplaint: event.target.value })} />
-          <Textarea label="Subjetivo" value={form.subjective} disabled={locked} onChange={(event) => setForm({ ...form, subjective: event.target.value })} />
-          <Textarea label="Objetivo" value={form.objective} disabled={locked} onChange={(event) => setForm({ ...form, objective: event.target.value })} />
-          <Textarea label="Avaliacao" value={form.assessment} disabled={locked} onChange={(event) => setForm({ ...form, assessment: event.target.value })} />
-          <Textarea label="Plano" value={form.plan} disabled={locked} onChange={(event) => setForm({ ...form, plan: event.target.value })} />
+          <Textarea label="Queixa / demanda" value={form.chiefComplaint} disabled={locked} onChange={(event) => setForm({ ...form, chiefComplaint: event.target.value })} />
+          <Textarea label="Relato do paciente" value={form.subjective} disabled={locked} onChange={(event) => setForm({ ...form, subjective: event.target.value })} />
+          <Textarea label="Observações da sessão" value={form.objective} disabled={locked} onChange={(event) => setForm({ ...form, objective: event.target.value })} />
+          <Textarea label="Impressão clínica" value={form.assessment} disabled={locked} onChange={(event) => setForm({ ...form, assessment: event.target.value })} />
+          <Textarea label="Conduta terapêutica" value={form.plan} disabled={locked} onChange={(event) => setForm({ ...form, plan: event.target.value })} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="Diagnostico" value={form.diagnosis} disabled={locked} onChange={(event) => setForm({ ...form, diagnosis: event.target.value })} />
-            <Input label="CID/Codigo" value={form.diagnosisCode} disabled={locked} onChange={(event) => setForm({ ...form, diagnosisCode: event.target.value })} />
+            <Input label="Hipótese diagnóstica" value={form.diagnosis} disabled={locked} onChange={(event) => setForm({ ...form, diagnosis: event.target.value })} />
+            <Input label="CID (opcional)" value={form.diagnosisCode} disabled={locked} onChange={(event) => setForm({ ...form, diagnosisCode: event.target.value })} />
           </div>
-          <Textarea label="Prescricao/orientacoes" value={form.prescription} disabled={locked} onChange={(event) => setForm({ ...form, prescription: event.target.value })} />
-          <Textarea label="Sinais vitais (JSON ou texto estruturado)" value={form.vitalSignsJson} disabled={locked} onChange={(event) => setForm({ ...form, vitalSignsJson: event.target.value })} />
+          <Textarea label="Encaminhamentos e orientações" value={form.prescription} disabled={locked} onChange={(event) => setForm({ ...form, prescription: event.target.value })} />
           {!locked ? (
             <div className="flex flex-wrap gap-2">
               <Button loading={saving}><Save className="h-4 w-4" />Salvar rascunho</Button>
