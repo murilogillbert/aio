@@ -14,6 +14,9 @@ export const servicesMock: Service[] = [
     roomIds: ["sala-1"],
     equipmentIds: ["eq-1"],
     plans: [],
+    onlineBooking: true,
+    showPrice: true,
+    showDuration: true,
   },
   {
     id: "svc-2",
@@ -28,6 +31,9 @@ export const servicesMock: Service[] = [
     roomIds: ["sala-2"],
     equipmentIds: ["eq-2"],
     plans: [],
+    onlineBooking: true,
+    showPrice: true,
+    showDuration: true,
   },
   {
     id: "svc-3",
@@ -42,6 +48,9 @@ export const servicesMock: Service[] = [
     roomIds: ["sala-3"],
     equipmentIds: ["eq-3"],
     plans: [],
+    onlineBooking: true,
+    showPrice: true,
+    showDuration: true,
   },
   {
     id: "svc-4",
@@ -56,6 +65,9 @@ export const servicesMock: Service[] = [
     roomIds: ["sala-3"],
     equipmentIds: ["eq-4"],
     plans: [],
+    onlineBooking: true,
+    showPrice: true,
+    showDuration: true,
   },
   {
     id: "svc-5",
@@ -70,6 +82,9 @@ export const servicesMock: Service[] = [
     roomIds: ["sala-1"],
     equipmentIds: [],
     plans: [],
+    onlineBooking: true,
+    showPrice: true,
+    showDuration: true,
   },
   {
     id: "svc-6",
@@ -84,6 +99,9 @@ export const servicesMock: Service[] = [
     roomIds: ["sala-1"],
     equipmentIds: [],
     plans: [],
+    onlineBooking: true,
+    showPrice: true,
+    showDuration: true,
   },
   {
     id: "svc-7",
@@ -98,6 +116,9 @@ export const servicesMock: Service[] = [
     roomIds: ["sala-4"],
     equipmentIds: [],
     plans: [],
+    onlineBooking: true,
+    showPrice: true,
+    showDuration: true,
   },
   {
     id: "svc-8",
@@ -112,5 +133,8 @@ export const servicesMock: Service[] = [
     roomIds: ["sala-4"],
     equipmentIds: [],
     plans: [],
+    onlineBooking: true,
+    showPrice: true,
+    showDuration: true,
   },
 ];

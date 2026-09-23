@@ -24,7 +24,7 @@ export function Home() {
   useEffect(() => {
     Promise.all([getServicos(), getProfissionais()])
       .then(([serviceData, professionalData]) => {
-        setServices(serviceData.slice(0, 6));
+        setServices(serviceData.filter((service) => service.onlineBooking).slice(0, 6));
         setProfessionals(professionalData.filter((item) => item.role === "profissional").slice(0, 4));
       })
       .finally(() => setLoading(false));
@@ -99,7 +99,7 @@ export function Home() {
                 <span className="text-xs font-bold uppercase tracking-wide text-primary">{service.category}</span>
                 <h3 className="mt-2 text-lg font-bold">{service.name}</h3>
                 <p className="mt-2 flex-1 text-sm leading-6 text-brown-mid">{service.shortDescription}</p>
-                <p className="mt-4 text-sm font-semibold">A partir de {currency(service.priceFrom)}</p>
+                {service.showPrice ? <p className="mt-4 text-sm font-semibold">A partir de {currency(service.priceFrom)}</p> : null}
                 <Link to={`/agendar?servico=${service.id}`} className="mt-4">
                   <Button className="w-full">Agendar</Button>
                 </Link>

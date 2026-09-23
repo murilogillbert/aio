@@ -39,7 +39,7 @@ export function Agendamento() {
 
   useEffect(() => {
     Promise.all([getServicos(), getProfissionais()]).then(([serviceData, professionalData]) => {
-      setServices(serviceData);
+      setServices(serviceData.filter((service) => service.onlineBooking));
       setProfessionals(professionalData.filter((item) => item.role === "profissional"));
     });
   }, []);
@@ -57,7 +57,9 @@ export function Agendamento() {
       ? selectedPlan.showPrice
         ? currency(selectedPlan.customPrice ?? selectedService.priceFrom)
         : "Consulte a cobertura"
-      : currency(selectedService.priceFrom)
+      : selectedService.showPrice
+        ? currency(selectedService.priceFrom)
+        : "Consulte o valor"
     : "A definir";
   const professionalOptions = useMemo(() => {
     if (!selectedService) return professionals;

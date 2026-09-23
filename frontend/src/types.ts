@@ -63,6 +63,9 @@ export type Service = {
   roomIds: string[];
   equipmentIds: string[];
   featured?: boolean;
+  onlineBooking: boolean;
+  showPrice: boolean;
+  showDuration: boolean;
   plans: { planId: string; planName: string; coverageRule: string; customPrice: number | null; showPrice: boolean }[];
 };
 

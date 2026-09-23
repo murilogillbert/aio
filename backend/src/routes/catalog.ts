@@ -28,6 +28,9 @@ const toServiceDto = (service: NonNullable<ServiceWithRelations>) => ({
   roomIds: service.roomServices.map((rs) => rs.roomId),
   equipmentIds: service.serviceEquipments.map((se) => se.equipmentId),
   featured: service.featured,
+  onlineBooking: service.onlineBooking,
+  showPrice: service.showPrice,
+  showDuration: service.showDuration,
   plans: service.planServices.map((ps) => ({
     planId: ps.planId,
     planName: ps.plan.name,

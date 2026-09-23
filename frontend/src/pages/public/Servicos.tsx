@@ -13,7 +13,9 @@ export function ServicosList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getServicos().then(setServices).finally(() => setLoading(false));
+    getServicos()
+      .then((data) => setServices(data.filter((service) => service.onlineBooking)))
+      .finally(() => setLoading(false));
   }, []);
 
   const categories = ["Todas", ...Array.from(new Set(services.map((service) => service.category)))];
@@ -48,7 +50,13 @@ export function ServicosList() {
               <p className="text-xs font-bold uppercase tracking-wide text-primary">{service.category}</p>
               <h2 className="mt-2 text-xl font-bold">{service.name}</h2>
               <p className="mt-2 text-sm leading-6 text-brown-mid">{service.shortDescription}</p>
-              <p className="mt-4 text-sm font-semibold">{service.durationMinutes} min · {currency(service.priceFrom)}</p>
+              {service.showDuration || service.showPrice ? (
+                <p className="mt-4 text-sm font-semibold">
+                  {[service.showDuration ? `${service.durationMinutes} min` : null, service.showPrice ? currency(service.priceFrom) : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link to={`/servicos/${service.id}`}><Button variant="secondary">Detalhes</Button></Link>
                 <Link to={`/agendar?servico=${service.id}`}><Button>Agendar</Button></Link>
@@ -77,11 +85,15 @@ export function ServicoDetail() {
 
   return (
     <main className="route-fade mx-auto max-w-5xl px-4 py-8">
-      <PageHeader title={service.name} description={service.description} actions={<Link to={`/agendar?servico=${service.id}`}><Button>Agendar</Button></Link>} />
+      <PageHeader
+        title={service.name}
+        description={service.description}
+        actions={service.onlineBooking ? <Link to={`/agendar?servico=${service.id}`}><Button>Agendar</Button></Link> : null}
+      />
       <div className="grid gap-4 md:grid-cols-3">
         <Card><p className="text-sm text-brown-mid">Categoria</p><strong>{service.category}</strong></Card>
-        <Card><p className="text-sm text-brown-mid">Duração</p><strong>{service.durationMinutes} minutos</strong></Card>
-        <Card><p className="text-sm text-brown-mid">Valor</p><strong>{currency(service.priceFrom)}</strong></Card>
+        {service.showDuration ? <Card><p className="text-sm text-brown-mid">Duração</p><strong>{service.durationMinutes} minutos</strong></Card> : null}
+        {service.showPrice ? <Card><p className="text-sm text-brown-mid">Valor</p><strong>{currency(service.priceFrom)}</strong></Card> : null}
       </div>
       <section className="mt-6">
         <h2 className="mb-3 text-lg font-bold">Profissionais habilitados</h2>
