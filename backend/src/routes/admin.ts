@@ -44,7 +44,8 @@ router.put(
 router.delete(
   "/crud/:resource/:id",
   asyncHandler(async (req, res) => {
-    await getHandler(req.params.resource).remove(req.params.id);
+    const cascade = req.query.cascade === "true";
+    await getHandler(req.params.resource).remove(req.params.id, cascade);
     res.status(204).send();
   }),
 );

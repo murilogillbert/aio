@@ -3,6 +3,10 @@ import { HttpError } from "../lib/httpError.js";
 
 export const errorHandler = (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof HttpError) {
+    if (err.payload) {
+      res.status(err.status).json({ message: err.message, ...err.payload });
+      return;
+    }
     res.status(err.status).type("text/plain").send(err.message);
     return;
   }

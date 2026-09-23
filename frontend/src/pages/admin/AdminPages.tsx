@@ -7,6 +7,7 @@ import { useToast } from "../../context/ToastContext";
 import type { AdminCrudField, AdminCrudItem, ClinicConfig, MetricsPoint } from "../../types";
 import { currency } from "../../utils";
 import {
+  ApiError,
   createAdminCrud,
   deleteAdminCrud,
   getMetricBreakdowns,
@@ -28,6 +29,7 @@ const fieldSets: Record<string, AdminCrudField[]> = {
     { key: "monthlyFixedPayment", label: "Pagamento fixo mensal", type: "number" },
     { key: "providesCare", label: "Atende pacientes", type: "select", options: ["true", "false"] },
     { key: "featured", label: "Destacar na página inicial", type: "select", options: ["false", "true"] },
+    { key: "isActive", label: "Ativo", type: "select", options: ["true", "false"] },
   ],
   servicos: [
     { key: "name", label: "Nome" },
@@ -168,7 +170,23 @@ function AdminCrudPage({
       await deleteAdminCrud(resource, item.id);
       showToast("success", "Registro excluido.");
       await load();
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError && error.details?.blocked) {
+        const cascadeConfirmed = await confirm(String(error.message), {
+          title: "Existem vínculos vinculados",
+          danger: true,
+          confirmLabel: "Excluir mesmo assim",
+        });
+        if (!cascadeConfirmed) return;
+        try {
+          await deleteAdminCrud(resource, item.id, true);
+          showToast("success", "Registro excluido.");
+          await load();
+        } catch {
+          showToast("error", "Nao foi possivel excluir.");
+        }
+        return;
+      }
       showToast("error", "Nao foi possivel excluir. Verifique vinculos existentes.");
     }
   };

@@ -59,6 +59,19 @@ const getToken = () => {
   }
 };
 
+// Erros com corpo JSON (ex.: exclusão bloqueada por vínculos) chegam aqui com `details`
+// preenchido, permitindo que a UI ofereça uma ação específica em vez de um toast genérico.
+export class ApiError extends Error {
+  status: number;
+  details?: Record<string, unknown>;
+
+  constructor(status: number, message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.status = status;
+    this.details = details;
+  }
+}
+
 const request = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type") && options.body) headers.set("Content-Type", "application/json");
@@ -67,8 +80,14 @@ const request = async <T>(path: string, options: RequestInit = {}): Promise<T> =
 
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
   if (!response.ok) {
+    const isJson = response.headers.get("content-type")?.includes("application/json");
+    if (isJson) {
+      const body = (await response.json().catch(() => null)) as { message?: string } | null;
+      const { message, ...details } = body ?? {};
+      throw new ApiError(response.status, message || `HTTP ${response.status}`, details);
+    }
     const message = await response.text();
-    throw new Error(message || `HTTP ${response.status}`);
+    throw new ApiError(response.status, message || `HTTP ${response.status}`);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -179,8 +198,8 @@ export const updateAdminCrud = (resource: string, id: string, fields: Record<str
     body: JSON.stringify({ fields }),
   });
 
-export const deleteAdminCrud = (resource: string, id: string) =>
-  request<void>(`/admin/crud/${resource}/${id}`, {
+export const deleteAdminCrud = (resource: string, id: string, cascade = false) =>
+  request<void>(`/admin/crud/${resource}/${id}${cascade ? "?cascade=true" : ""}`, {
     method: "DELETE",
   });
 
@@ -197,8 +216,8 @@ export const updateAdminService = (id: string, body: Omit<ServiceDetail, "id">) 
     method: "PUT",
     body: JSON.stringify(body),
   });
-export const deleteAdminService = (id: string) =>
-  request<void>(`/admin/servicos/${id}`, { method: "DELETE" });
+export const deleteAdminService = (id: string, cascade = false) =>
+  request<void>(`/admin/servicos/${id}${cascade ? "?cascade=true" : ""}`, { method: "DELETE" });
 
 // ─── Clinic / Integrations ──────────────────────────────────────────────────
 export const getClinicIntegrations = () => request<IntegrationsDto>("/admin/clinica/integracoes");
@@ -236,9 +255,10 @@ export const patchAppointmentStatus = (id: string, status: string, cancellationS
   request<AppointmentRich>(`/agendamentos/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, cancellationSource }) });
 export const patchAppointmentConfirmation = (id: string, value: string) =>
   request<AppointmentRich>(`/agendamentos/${id}/confirmacao`, { method: "PATCH", body: JSON.stringify({ value }) });
-export const deleteAppointment = (id: string) => request<void>(`/agendamentos/${id}`, { method: "DELETE" });
-export const deleteFutureAppointments = (id: string) =>
-  request<{ count: number; message: string }>(`/agendamentos/${id}/futuros`, { method: "DELETE" });
+export const deleteAppointment = (id: string, cascade = false) =>
+  request<void>(`/agendamentos/${id}${cascade ? "?cascade=true" : ""}`, { method: "DELETE" });
+export const deleteFutureAppointments = (id: string, cascade = false) =>
+  request<{ count: number; message: string }>(`/agendamentos/${id}/futuros${cascade ? "?cascade=true" : ""}`, { method: "DELETE" });
 export const checkinAppointment = (id: string) =>
   request<{ ok: boolean; message: string }>(`/agendamentos/${id}/checkin`, { method: "POST" });
 export const payAppointment = (id: string, amount: number, method: string, methodDetail?: string, paidBeforeCompletion = false) =>

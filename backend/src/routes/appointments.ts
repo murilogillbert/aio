@@ -15,6 +15,7 @@ import {
   notifyAppointmentCreated,
 } from "../lib/notifications.js";
 import { computeCommission } from "../lib/commission.js";
+import { deleteAppointmentSafe, deleteFutureAppointmentsSafe } from "../lib/deleteGuard.js";
 
 const router = Router();
 router.use(requireAuth, requireRole("admin", "recepcao", "profissional", "paciente"));
@@ -332,7 +333,8 @@ router.delete(
   asyncHandler(async (req, res) => {
     const existing = await prisma.appointment.findUnique({ where: { id: req.params.id } });
     if (!existing) throw notFound("Agendamento não encontrado.");
-    await prisma.appointment.delete({ where: { id: existing.id } });
+    const cascade = req.query.cascade === "true";
+    await deleteAppointmentSafe(existing.id, cascade);
     res.status(204).send();
   }),
 );
@@ -345,9 +347,8 @@ router.delete(
     if (!existing) throw notFound("Agendamento não encontrado.");
     if (!existing.recurrenceGroupId) throw badRequest("Este agendamento não faz parte de uma série recorrente.");
 
-    const result = await prisma.appointment.deleteMany({
-      where: { recurrenceGroupId: existing.recurrenceGroupId, date: { gte: existing.date } },
-    });
+    const cascade = req.query.cascade === "true";
+    const result = await deleteFutureAppointmentsSafe(existing.recurrenceGroupId, existing.date, cascade);
 
     res.json({ count: result.count, message: `${result.count} agendamento(s) futuro(s) removido(s).` });
   }),

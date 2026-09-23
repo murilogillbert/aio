@@ -6,6 +6,7 @@ import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import { currency } from "../../utils";
 import {
+  ApiError,
   createAdminService,
   deleteAdminService,
   getAdminService,
@@ -138,7 +139,23 @@ export function AdminServiceEditor() {
       await deleteAdminService(item.id);
       showToast("success", "Serviço excluído.");
       await load();
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError && error.details?.blocked) {
+        const cascadeConfirmed = await confirm(String(error.message), {
+          title: "Existem vínculos vinculados",
+          danger: true,
+          confirmLabel: "Excluir mesmo assim",
+        });
+        if (!cascadeConfirmed) return;
+        try {
+          await deleteAdminService(item.id, true);
+          showToast("success", "Serviço excluído.");
+          await load();
+        } catch {
+          showToast("error", "Não foi possível excluir.");
+        }
+        return;
+      }
       showToast("error", "Não foi possível excluir. Verifique vínculos existentes.");
     }
   };

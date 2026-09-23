@@ -2,8 +2,10 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar, CalendarRange, ChevronLeft, ChevronRight, Plus, Search, Trash2, X, Repeat, MessageCircle } from "lucide-react";
 import { Badge, Button, Card, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
 import { PageHeader } from "../../components/Page";
+import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import {
+  ApiError,
   checkinAppointment,
   createAppointment,
   deleteAppointment,
@@ -84,6 +86,7 @@ interface FormState {
 
 export function ReceptionAgenda() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const today = isoDate(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
@@ -266,21 +269,31 @@ export function ReceptionAgenda() {
     showToast("success", "Chegada notificada.");
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = async (cascade = false) => {
     if (!selectedAppt) return;
+    const isFuture = deleteScope === "future" && Boolean(selectedAppt.recurrenceGroupId);
     try {
-      if (deleteScope === "future" && selectedAppt.recurrenceGroupId) {
-        const result = await deleteFutureAppointments(selectedAppt.id);
+      if (isFuture) {
+        const result = await deleteFutureAppointments(selectedAppt.id, cascade);
         showToast("success", result.message);
       } else {
-        await deleteAppointment(selectedAppt.id);
+        await deleteAppointment(selectedAppt.id, cascade);
         showToast("success", "Agendamento removido.");
       }
       setShowDelete(false);
       setSelectedAppt(null);
       setDeleteScope("one");
       await refetchAppointments();
-    } catch {
+    } catch (error) {
+      if (!cascade && error instanceof ApiError && error.details?.blocked) {
+        const cascadeConfirmed = await confirm(String(error.message), {
+          title: "Existem vínculos neste agendamento",
+          danger: true,
+          confirmLabel: "Excluir mesmo assim",
+        });
+        if (cascadeConfirmed) await handleDeleteConfirm(true);
+        return;
+      }
       showToast("error", "Falha ao remover.");
     }
   };

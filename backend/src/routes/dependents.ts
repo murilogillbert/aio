@@ -58,6 +58,13 @@ router.delete(
     const existing = await prisma.dependent.findUnique({ where: { id: req.params.id } });
     if (!existing || existing.patientId !== patient.id) throw notFound("Dependente não encontrado.");
 
+    const appointments = await prisma.appointment.count({ where: { dependentId: existing.id } });
+    if (appointments > 0) {
+      throw badRequest(
+        `Este dependente possui ${appointments} agendamento(s) vinculado(s). Cancele ou remova esses agendamentos antes de excluir o dependente.`,
+      );
+    }
+
     await prisma.dependent.delete({ where: { id: existing.id } });
     res.status(204).send();
   }),

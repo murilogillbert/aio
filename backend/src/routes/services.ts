@@ -4,6 +4,7 @@ import { asyncHandler } from "../lib/asyncHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { notFound } from "../lib/httpError.js";
 import { createService, findServiceDetail, updateService, type ServiceUpsertBody } from "../dto/serviceDetail.js";
+import { deleteServiceSafe } from "../lib/deleteGuard.js";
 
 const router = Router();
 
@@ -92,7 +93,8 @@ router.delete(
   asyncHandler(async (req, res) => {
     const existing = await prisma.service.findUnique({ where: { id: req.params.id } });
     if (!existing) throw notFound("Serviço não encontrado.");
-    await prisma.service.delete({ where: { id: existing.id } });
+    const cascade = req.query.cascade === "true";
+    await deleteServiceSafe(existing.id, cascade);
     res.status(204).send();
   }),
 );

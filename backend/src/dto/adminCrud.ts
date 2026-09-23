@@ -3,6 +3,15 @@ import { badRequest, conflict, notFound } from "../lib/httpError.js";
 import { naiveDate } from "../lib/datetime.js";
 import { hashPassword } from "../lib/password.js";
 import { issuePasswordResetToken, sendPasswordResetEmail } from "../lib/passwordReset.js";
+import {
+  deleteCategorySafe,
+  deleteJobOpeningSafe,
+  deleteMessageTemplateSafe,
+  deletePlanSafe,
+  deleteProfessionalSafe,
+  deleteRoomSafe,
+  deleteServiceSafe,
+} from "../lib/deleteGuard.js";
 
 const DEFAULT_PASSWORD = "123456";
 const ASSIGNABLE_ROLES = ["paciente", "profissional", "recepcao", "admin"] as const;
@@ -46,7 +55,7 @@ type ResourceHandler = {
   list: () => Promise<AdminCrudItem[]>;
   create: (fields: Record<string, string>) => Promise<AdminCrudItem>;
   update: (id: string, fields: Record<string, string>) => Promise<void>;
-  remove: (id: string) => Promise<void>;
+  remove: (id: string, cascade?: boolean) => Promise<void>;
 };
 
 const attachCategory = async (serviceId: string, categoryName: string) => {
@@ -78,6 +87,7 @@ const handlers: Record<string, ResourceHandler> = {
           monthlyFixedPayment: p.monthlyFixedPayment ? String(p.monthlyFixedPayment) : "",
           providesCare: String(p.providesCare),
           featured: String(p.featured),
+          isActive: String(p.isActive),
         },
       }));
     },
@@ -100,6 +110,7 @@ const handlers: Record<string, ResourceHandler> = {
           monthlyFixedPayment: fields.monthlyFixedPayment ? num(fields, "monthlyFixedPayment") : null,
           providesCare: boolVal(fields, "providesCare", true),
           featured: boolVal(fields, "featured", false),
+          isActive: boolVal(fields, "isActive", true),
         },
       });
       return (await handlers.profissionais.list()).find((item) => item.id === created.id)!;
@@ -129,6 +140,7 @@ const handlers: Record<string, ResourceHandler> = {
           monthlyFixedPayment: fields.monthlyFixedPayment ? num(fields, "monthlyFixedPayment") : null,
           providesCare: boolVal(fields, "providesCare", true),
           featured: boolVal(fields, "featured", false),
+          isActive: boolVal(fields, "isActive", true),
         },
       });
 
@@ -136,10 +148,8 @@ const handlers: Record<string, ResourceHandler> = {
         await prisma.user.update({ where: { id: existing.userId }, data: { fullName: name, email: email || undefined, phone } });
       }
     },
-    async remove(id) {
-      const existing = await prisma.professional.findUnique({ where: { id } });
-      await prisma.professional.delete({ where: { id } });
-      if (existing?.userId) await prisma.user.update({ where: { id: existing.userId }, data: { isActive: false } });
+    async remove(id, cascade = false) {
+      await deleteProfessionalSafe(id, cascade);
     },
   },
 
@@ -187,8 +197,8 @@ const handlers: Record<string, ResourceHandler> = {
       });
       await attachCategory(id, str(fields, "category"));
     },
-    async remove(id) {
-      await prisma.service.delete({ where: { id } });
+    async remove(id, cascade = false) {
+      await deleteServiceSafe(id, cascade);
     },
   },
 
@@ -225,8 +235,8 @@ const handlers: Record<string, ResourceHandler> = {
         },
       });
     },
-    async remove(id) {
-      await prisma.jobOpening.delete({ where: { id } });
+    async remove(id, cascade = false) {
+      await deleteJobOpeningSafe(id, cascade);
     },
   },
 
@@ -248,8 +258,8 @@ const handlers: Record<string, ResourceHandler> = {
     async update(id, fields) {
       await prisma.category.update({ where: { id }, data: { name: str(fields, "name"), type: str(fields, "type") } });
     },
-    async remove(id) {
-      await prisma.category.delete({ where: { id } });
+    async remove(id, cascade = false) {
+      await deleteCategorySafe(id, cascade);
     },
   },
 
@@ -276,8 +286,8 @@ const handlers: Record<string, ResourceHandler> = {
         data: { name: str(fields, "name"), capacity: num(fields, "capacity"), notes: str(fields, "notes") },
       });
     },
-    async remove(id) {
-      await prisma.room.delete({ where: { id } });
+    async remove(id, cascade = false) {
+      await deleteRoomSafe(id, cascade);
     },
   },
 
@@ -342,8 +352,8 @@ const handlers: Record<string, ResourceHandler> = {
         data: { occasion: str(fields, "occasion"), channel: str(fields, "channel"), body: str(fields, "body") },
       });
     },
-    async remove(id) {
-      await prisma.messageTemplate.delete({ where: { id } });
+    async remove(id, cascade = false) {
+      await deleteMessageTemplateSafe(id, cascade);
     },
   },
 
@@ -424,8 +434,8 @@ const handlers: Record<string, ResourceHandler> = {
     async update(id, fields) {
       await prisma.plan.update({ where: { id }, data: { name: str(fields, "name"), description: str(fields, "description") } });
     },
-    async remove(id) {
-      await prisma.plan.delete({ where: { id } });
+    async remove(id, cascade = false) {
+      await deletePlanSafe(id, cascade);
     },
   },
 
