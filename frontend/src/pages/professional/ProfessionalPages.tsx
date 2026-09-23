@@ -161,15 +161,19 @@ const PERIOD_OPTIONS = [
 export function ProfessionalMetrics() {
   const [periodo, setPeriodo] = useState("30d");
   const [offset, setOffset] = useState(0);
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const customRange = customStart && customEnd ? { start: customStart, end: customEnd } : undefined;
   const [metric, setMetric] = useState<Awaited<ReturnType<typeof getMyProfessionalMetrics>>>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    getMyProfessionalMetrics(periodo, offset)
+    getMyProfessionalMetrics(periodo, offset, customRange)
       .then(setMetric)
       .finally(() => setLoading(false));
-  }, [periodo, offset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodo, offset, customStart, customEnd]);
 
   return (
     <>
@@ -177,15 +181,23 @@ export function ProfessionalMetrics() {
         title="Métricas individuais"
         description="Atendimentos, comissão, ticket médio e cancelamentos no período selecionado."
         actions={
-          <div className="flex items-center gap-2">
-            <Select label="" value={periodo} onChange={(event) => { setPeriodo(event.target.value); setOffset(0); }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select label="" value={periodo} onChange={(event) => { setPeriodo(event.target.value); setOffset(0); setCustomStart(""); setCustomEnd(""); }}>
               {PERIOD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </Select>
-            <Button type="button" variant="secondary" onClick={() => setOffset((current) => current + 1)}>← Anterior</Button>
-            <Button type="button" variant="ghost" onClick={() => setOffset(0)} disabled={offset === 0}>Período atual</Button>
+            <Button type="button" variant="secondary" onClick={() => setOffset((current) => current + 1)} disabled={Boolean(customRange)}>← Anterior</Button>
+            <Button type="button" variant="ghost" onClick={() => setOffset(0)} disabled={offset === 0 || Boolean(customRange)}>Período atual</Button>
           </div>
         }
       />
+      <Card className="mb-4">
+        <p className="mb-2 text-sm font-medium">Ou escolha um período personalizado</p>
+        <div className="flex flex-wrap items-end gap-2">
+          <Input label="De" type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} />
+          <Input label="Até" type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} />
+          {customRange ? <Button type="button" variant="ghost" onClick={() => { setCustomStart(""); setCustomEnd(""); }}>Limpar</Button> : null}
+        </div>
+      </Card>
       {loading ? (
         <Skeleton className="h-40" />
       ) : !metric ? (
@@ -193,10 +205,15 @@ export function ProfessionalMetrics() {
       ) : (
         <>
           <StatGrid>
-            <StatCard label="Atendimentos" value={String(metric.appointments)} hint={offset > 0 ? `${offset} período(s) atrás` : "Período atual"} />
+            <StatCard label="Atendimentos" value={String(metric.appointments)} hint={customRange ? "Período personalizado" : offset > 0 ? `${offset} período(s) atrás` : "Período atual"} />
             <StatCard label="Valores a receber" value={currency(metric.netPayout)} hint={`${metric.commissionPct}% de comissão`} />
             <StatCard label="Receita gerada" value={currency(metric.revenue)} />
             <StatCard label="Cancelamento" value={`${metric.cancellationRate}%`} />
+          </StatGrid>
+          <StatGrid>
+            <StatCard label="Confirmações" value={String(metric.confirmedCount)} />
+            <StatCard label="Não compareceu" value={String(metric.noShowCount)} />
+            <StatCard label="Não compareceu após confirmar" value={String(metric.noShowAfterConfirmationCount)} />
           </StatGrid>
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <Card>
@@ -218,7 +235,40 @@ export function ProfessionalMetrics() {
                 ]}
               />
             </Card>
+            <Card>
+              <h2 className="mb-4 font-bold">Formas de pagamento</h2>
+              {metric.byMethod.length === 0 ? <p className="text-sm text-brown-mid">Sem pagamentos no período.</p> : (
+                <div className="grid gap-2 text-sm">
+                  {metric.byMethod.map((entry) => (
+                    <div key={entry.label} className="flex items-center justify-between"><span>{entry.label}</span><strong>{currency(entry.value)}</strong></div>
+                  ))}
+                </div>
+              )}
+            </Card>
+            <Card>
+              <h2 className="mb-4 font-bold">Convênios atendidos</h2>
+              {metric.byPlan.length === 0 ? <p className="text-sm text-brown-mid">Sem atendimentos no período.</p> : (
+                <div className="grid gap-2 text-sm">
+                  {metric.byPlan.map((entry) => (
+                    <div key={entry.label} className="flex items-center justify-between"><span>{entry.label}</span><strong>{currency(entry.value)}</strong></div>
+                  ))}
+                </div>
+              )}
+            </Card>
           </div>
+          <Card className="mt-4">
+            <h2 className="mb-4 font-bold">Atendimentos por paciente</h2>
+            {metric.byPatient.length === 0 ? <p className="text-sm text-brown-mid">Sem atendimentos no período.</p> : (
+              <div className="grid gap-2 text-sm">
+                {metric.byPatient.map((entry) => (
+                  <div key={entry.label} className="flex items-center justify-between rounded-lg bg-bg-secondary p-2">
+                    <span>{entry.label} <span className="text-xs text-brown-mid">({entry.count} atendimento{entry.count === 1 ? "" : "s"})</span></span>
+                    <strong>{currency(entry.revenue)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </>
       )}
     </>

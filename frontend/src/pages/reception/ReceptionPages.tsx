@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, CalendarCheck, Clock, Loader2, MessageCircle, Plus, Search } from "lucide-react";
+import { Bell, CalendarCheck, CalendarClock, Clock, Loader2, MessageCircle, Plus, Search } from "lucide-react";
 import { Badge, Button, Card, Input, Modal, Skeleton, Textarea } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { ChatPanel } from "../../components/ChatPanel";
@@ -9,10 +9,11 @@ import {
   createConversation,
   createPatient,
   deletePatient,
+  listPatientAppointments,
   reactivatePatient,
   updatePatient,
 } from "../../services/api";
-import type { PatientRich, PatientUpsert } from "../../types";
+import type { AppointmentRich, PatientRich, PatientUpsert } from "../../types";
 import { currency, dateLabel, naiveNowIso, todayLocalDate } from "../../utils";
 import { useToast } from "../../context/ToastContext";
 import { useAppointmentsRange } from "../../hooks/useAppointments";
@@ -134,6 +135,19 @@ export function ReceptionPatients() {
   const [duplicates, setDuplicates] = useState<PatientRich[] | null>(null);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [viewingPatient, setViewingPatient] = useState<PatientRich | null>(null);
+  const [patientAppointments, setPatientAppointments] = useState<AppointmentRich[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
+
+  const viewAppointments = async (patient: PatientRich) => {
+    setViewingPatient(patient);
+    setLoadingAppointments(true);
+    try {
+      setPatientAppointments(await listPatientAppointments(patient.id));
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -251,6 +265,7 @@ export function ReceptionPatients() {
               <p className="mt-2 text-xs text-brown-mid">{patient.dependents} dependentes</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => openEdit(patient)}>Editar</Button>
+                <Button variant="secondary" onClick={() => void viewAppointments(patient)}><CalendarClock className="h-4 w-4" />Agendamentos</Button>
                 <Link to={`/recepcao/pacientes/${patient.id}/prontuario`}>
                   <Button variant="secondary">Prontuario</Button>
                 </Link>
@@ -317,8 +332,50 @@ export function ReceptionPatients() {
           </div>
         </Modal>
       ) : null}
+
+      <Modal open={Boolean(viewingPatient)} title={`Agendamentos — ${viewingPatient?.name ?? ""}`} onClose={() => setViewingPatient(null)}>
+        {loadingAppointments ? (
+          <Skeleton className="h-40" />
+        ) : patientAppointments.length === 0 ? (
+          <p className="text-sm text-brown-mid">Nenhum agendamento encontrado para este paciente.</p>
+        ) : (
+          <div className="grid max-h-[60vh] gap-2 overflow-y-auto">
+            {[...patientAppointments].reverse().map((appt) => (
+              <div key={appt.id} className="rounded-lg bg-bg-secondary p-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <strong>{dateLabel(appt.startTime.slice(0, 10))} às {appt.startTime.slice(11, 16)}</strong>
+                  <Badge tone={statusTone(appt.status)}>{statusLabel(appt.status)}</Badge>
+                </div>
+                <p className="text-xs text-brown-mid">
+                  {appt.serviceName} com {appt.professionalName}
+                  {appt.dependentName ? ` — para ${appt.dependentName} (dependente)` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </>
   );
+}
+
+function statusTone(status: string): "neutral" | "success" | "warning" | "danger" {
+  if (status === "Cancelado") return "danger";
+  if (status === "Realizado" || status === "Confirmado" || status === "EmAndamento") return "success";
+  if (status === "Agendado" || status === "Pendente") return "warning";
+  return "neutral";
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  Agendado: "Agendado",
+  Confirmado: "Confirmado",
+  EmAndamento: "Em atendimento",
+  Realizado: "Realizado",
+  NaoCompareceu: "Não compareceu",
+  Cancelado: "Cancelado",
+};
+function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status;
 }
 
 // ─── Messages (lista mais real) ─────────────────────────────────────────────

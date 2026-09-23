@@ -367,6 +367,10 @@ export type MetricsFaturamento = {
   byMethod: { label: string; value: number }[];
   byOrigin: { label: string; value: number }[];
   byPlan: { label: string; value: number }[];
+  byPatient: { patientId: string; label: string; appointments: number; revenue: number }[];
+  cancelledCount: number;
+  confirmedCount: number;
+  noShowAfterConfirmationCount: number;
   custosByCategory: { label: string; value: number }[];
   payouts: { professionalId: string; name: string; specialty: string; appointments: number; gross: number; commissionPct: number; net: number; netAfterTax: number }[];
   monthlyRevenue: { month: string; revenue: number; payout: number; custos: number; netRevenue: number }[];
@@ -380,6 +384,8 @@ export type ProfessionalMetric = {
   completedCount: number;
   cancelledCount: number;
   noShowCount: number;
+  confirmedCount: number;
+  noShowAfterConfirmationCount: number;
   occupancy: number;
   revenue: number;
   grossPayout: number;
@@ -392,6 +398,9 @@ export type ProfessionalMetric = {
   rating: number;
   revenueTrend: number;
   status: string;
+  byPatient: { patientId: string; label: string; count: number; revenue: number }[];
+  byMethod: { label: string; value: number }[];
+  byPlan: { label: string; value: number }[];
 };
 
 export type ServiceMetric = {

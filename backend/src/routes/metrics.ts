@@ -4,7 +4,7 @@ import { prisma } from "../db.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { combineIso, dateOnly, dateOnlyString, toMinutes } from "../lib/datetime.js";
-import { getPeriodRange, getPreviousRange, trend, type PeriodRange } from "../lib/period.js";
+import { getPeriodRange, getPreviousRange, getRangeFromQuery, trend, type PeriodRange } from "../lib/period.js";
 import { myProfessionalId } from "../lib/actor.js";
 
 const router = Router();
@@ -226,12 +226,14 @@ router.get(
   requireAuth,
   requireRole("admin"),
   asyncHandler(async (req, res) => {
-    const range = getPeriodRange(req.query.periodo as string | undefined);
+    const range = getRangeFromQuery(req.query as { periodo?: string; start?: string; end?: string });
     const previous = getPreviousRange(range);
 
     const payments = await prisma.payment.findMany({
       where: { appointment: countAppointmentsInRange(range) },
-      include: { appointment: { include: { service: true, plan: true } } },
+      include: {
+        appointment: { include: { service: true, plan: true, patient: { include: { user: true } }, dependent: true } },
+      },
     });
     const totalRevenue = payments.reduce((sum, p) => sum + Number(p.grossAmount), 0);
     const previousRevenue = await revenueForAppointments(countAppointmentsInRange(previous));
@@ -269,6 +271,22 @@ router.get(
       const label = p.appointment.plan?.name ?? "Sem convênio";
       byPlan.set(label, (byPlan.get(label) ?? 0) + Number(p.grossAmount));
     });
+
+    const byPatientMap = new Map<string, { patientId: string; label: string; appointments: number; revenue: number }>();
+    payments.forEach((p) => {
+      const key = p.appointment.dependentId ?? p.appointment.patientId;
+      const label = p.appointment.dependent?.fullName ?? p.appointment.patient.user.fullName;
+      const entry = byPatientMap.get(key) ?? { patientId: p.appointment.patientId, label, appointments: 0, revenue: 0 };
+      entry.appointments += 1;
+      entry.revenue += Number(p.grossAmount);
+      byPatientMap.set(key, entry);
+    });
+
+    const cancelledCount = appointments.filter((a) => a.status === "Cancelado").length;
+    const confirmedCount = appointments.filter((a) => a.patientConfirmation === "Confirmado").length;
+    const noShowAfterConfirmationCount = appointments.filter(
+      (a) => a.patientConfirmation === "Confirmado" && a.status === "NaoCompareceu",
+    ).length;
 
     const custosByCategory = new Map<string, number>();
     costs.forEach((c) => {
@@ -316,6 +334,10 @@ router.get(
         { label: "Pagamento manual (recepção)", value: byOrigin.manual },
       ],
       byPlan: [...byPlan.entries()].map(([label, value]) => ({ label, value })),
+      byPatient: [...byPatientMap.values()].sort((a, b) => b.revenue - a.revenue),
+      cancelledCount,
+      confirmedCount,
+      noShowAfterConfirmationCount,
       custosByCategory: [...custosByCategory.entries()].map(([label, value]) => ({ label, value })),
       payouts: [...payoutByProfessional.values()].map((p) => ({
         professionalId: p.professionalId,
@@ -345,7 +367,7 @@ const computeProfessionalMetric = async (
 ) => {
   const appointments = await prisma.appointment.findMany({
     where: countAppointmentsInRange(range, { professionalId: professional.id }),
-    include: { service: true, payment: true },
+    include: { service: true, payment: true, patient: { include: { user: true } }, dependent: true, plan: true },
   });
   const commissions = await prisma.commission.findMany({
     where: { professionalId: professional.id, appointment: countAppointmentsInRange(range) },
@@ -372,6 +394,34 @@ const computeProfessionalMetric = async (
   const cancellationRate = appointments.length > 0 ? Math.round((cancelledCount / appointments.length) * 10000) / 100 : 0;
   const status = cancellationRate > 30 ? "critico" : cancellationRate > 15 ? "atencao" : trend(0, revenue) === 100 && revenue > 0 ? "destaque" : "estavel";
 
+  const confirmedCount = appointments.filter((a) => a.patientConfirmation === "Confirmado").length;
+  const noShowAfterConfirmationCount = appointments.filter(
+    (a) => a.patientConfirmation === "Confirmado" && a.status === "NaoCompareceu",
+  ).length;
+
+  const byPatientMap = new Map<string, { patientId: string; label: string; count: number; revenue: number }>();
+  appointments.forEach((a) => {
+    const key = a.dependentId ?? a.patientId;
+    const label = a.dependent?.fullName ?? a.patient.user.fullName;
+    const entry = byPatientMap.get(key) ?? { patientId: a.patientId, label, count: 0, revenue: 0 };
+    entry.count += 1;
+    entry.revenue += a.payment ? Number(a.payment.grossAmount) : 0;
+    byPatientMap.set(key, entry);
+  });
+
+  const byMethodMap = new Map<string, number>();
+  appointments.forEach((a) => {
+    if (!a.payment) return;
+    const label = a.payment.method || "Outro";
+    byMethodMap.set(label, (byMethodMap.get(label) ?? 0) + Number(a.payment.grossAmount));
+  });
+
+  const byPlanMap = new Map<string, number>();
+  appointments.forEach((a) => {
+    const label = a.plan?.name ?? "Particular";
+    byPlanMap.set(label, (byPlanMap.get(label) ?? 0) + (a.payment ? Number(a.payment.grossAmount) : 0));
+  });
+
   return {
     professionalId: professional.id,
     name: professional.name,
@@ -380,6 +430,8 @@ const computeProfessionalMetric = async (
     completedCount,
     cancelledCount,
     noShowCount,
+    confirmedCount,
+    noShowAfterConfirmationCount,
     occupancy,
     revenue,
     grossPayout,
@@ -395,6 +447,9 @@ const computeProfessionalMetric = async (
     rating: 4.8,
     revenueTrend: trend(0, revenue),
     status,
+    byPatient: [...byPatientMap.values()].sort((a, b) => b.revenue - a.revenue),
+    byMethod: [...byMethodMap.entries()].map(([label, value]) => ({ label, value })),
+    byPlan: [...byPlanMap.entries()].map(([label, value]) => ({ label, value })),
   };
 };
 
@@ -403,7 +458,7 @@ router.get(
   requireAuth,
   requireRole("admin"),
   asyncHandler(async (req, res) => {
-    const range = getPeriodRange(req.query.periodo as string | undefined);
+    const range = getRangeFromQuery(req.query as { periodo?: string; start?: string; end?: string });
     const professionals = await prisma.professional.findMany({ where: { providesCare: true } });
     const firstDates = await firstAppointmentDates();
     const firstDateByPatient = new Map(firstDates.map((row) => [row.patientId, row._min.date]));
@@ -427,8 +482,7 @@ router.get(
     const professional = await prisma.professional.findUnique({ where: { id: professionalId } });
     if (!professional) return res.json(null);
 
-    const offset = Number(req.query.offset ?? 0) || 0;
-    const range = getPeriodRange(req.query.periodo as string | undefined, offset);
+    const range = getRangeFromQuery(req.query as { periodo?: string; offset?: string; start?: string; end?: string });
     const firstDates = await firstAppointmentDates();
     const firstDateByPatient = new Map(firstDates.map((row) => [row.patientId, row._min.date]));
 

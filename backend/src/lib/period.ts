@@ -1,3 +1,5 @@
+import { addDays, dateOnly } from "./datetime.js";
+
 export type PeriodRange = { days: number; start: Date; end: Date };
 
 const startOfDay = (date: Date) => {
@@ -54,6 +56,21 @@ export const getPeriodRange = (periodo?: string | null, offset = 0): PeriodRange
   const start = new Date(end);
   start.setDate(start.getDate() - days);
   return { days, start, end };
+};
+
+/**
+ * Lê `start`/`end` ("YYYY-MM-DD", ambos inclusivos) de uma query string, se presentes, e monta
+ * um PeriodRange customizado a partir deles — usado pelos filtros de data personalizada das
+ * telas de métricas. Sem `start`/`end`, cai de volta em `getPeriodRange(periodo, offset)`.
+ */
+export const getRangeFromQuery = (query: { periodo?: string; offset?: string; start?: string; end?: string }): PeriodRange => {
+  if (query.start && query.end) {
+    const start = dateOnly(query.start);
+    const end = dateOnly(addDays(query.end, 1));
+    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000));
+    return { days, start, end };
+  }
+  return getPeriodRange(query.periodo, Number(query.offset ?? 0) || 0);
 };
 
 export const getPreviousRange = (range: PeriodRange): PeriodRange => {

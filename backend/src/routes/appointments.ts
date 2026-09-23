@@ -70,18 +70,25 @@ const autoRegisterCompletionPayment = async (appointmentId: string) => {
 router.get(
   "/",
   asyncHandler(async (req, res) => {
-    const { start, end, professionalId } = req.query as { start?: string; end?: string; professionalId?: string };
-    if (!start || !end) throw badRequest("Informe start e end.");
+    const { start, end, professionalId, patientId } = req.query as {
+      start?: string;
+      end?: string;
+      professionalId?: string;
+      patientId?: string;
+    };
+    // Com patientId, start/end são opcionais — permite buscar o histórico completo
+    // (passado e futuro) de um paciente específico, ex. tela de pacientes da recepção.
+    if ((!start || !end) && !patientId) throw badRequest("Informe start e end, ou patientId.");
 
-    const startDate = dateOnly(start.slice(0, 10));
-    const endDate = dateOnly(addDays(end.slice(0, 10), 1));
+    const dateFilter = start && end ? { date: { gte: dateOnly(start.slice(0, 10)), lt: dateOnly(addDays(end.slice(0, 10), 1)) } } : {};
 
     const ownProfessionalId = await myProfessionalId(req.user!);
     const ownPatientId = await myPatientId(req.user!);
 
     const appointments = await prisma.appointment.findMany({
       where: {
-        date: { gte: startDate, lt: endDate },
+        ...dateFilter,
+        ...(patientId ? { patientId } : {}),
         // Profissional/paciente sempre veem só os próprios dados, independente do que a query pedir.
         ...(ownProfessionalId ? { professionalId: ownProfessionalId } : professionalId ? { professionalId } : {}),
         ...(ownPatientId ? { patientId: ownPatientId } : {}),

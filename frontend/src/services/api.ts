@@ -233,11 +233,21 @@ export const testIntegration = (type: IntegrationType, payload?: Record<string, 
   });
 
 // ─── Metrics ────────────────────────────────────────────────────────────────
+export type MetricsDateRange = { start: string; end: string };
+const rangeParams = (periodo: string, range?: MetricsDateRange, offset?: number) => {
+  const params = new URLSearchParams();
+  if (range) params.set("start", range.start), params.set("end", range.end);
+  else params.set("periodo", periodo);
+  if (offset) params.set("offset", String(offset));
+  return params.toString();
+};
 export const getDashboard = (periodo = "30d") => request<MetricsDashboard>(`/metricas/dashboard?periodo=${periodo}`);
-export const getFaturamento = (periodo = "30d") => request<MetricsFaturamento>(`/metricas/faturamento?periodo=${periodo}`);
-export const getProfessionalMetrics = (periodo = "30d") => request<ProfessionalMetric[]>(`/metricas/profissionais?periodo=${periodo}`);
-export const getMyProfessionalMetrics = (periodo = "30d", offset = 0) =>
-  request<ProfessionalMetric | null>(`/metricas/profissionais/me?periodo=${periodo}&offset=${offset}`);
+export const getFaturamento = (periodo = "30d", range?: MetricsDateRange) =>
+  request<MetricsFaturamento>(`/metricas/faturamento?${rangeParams(periodo, range)}`);
+export const getProfessionalMetrics = (periodo = "30d", range?: MetricsDateRange) =>
+  request<ProfessionalMetric[]>(`/metricas/profissionais?${rangeParams(periodo, range)}`);
+export const getMyProfessionalMetrics = (periodo = "30d", offset = 0, range?: MetricsDateRange) =>
+  request<ProfessionalMetric | null>(`/metricas/profissionais/me?${rangeParams(periodo, range, offset)}`);
 export const getServiceMetrics = (periodo = "30d") => request<ServiceMetric[]>(`/metricas/servicos?periodo=${periodo}`);
 export const getMovimento = (data?: string) => request<MetricsMovimento>(`/metricas/movimento${data ? `?data=${data}` : ""}`);
 
@@ -248,6 +258,8 @@ export const listAppointments = (start: string, end: string, professionalId?: st
   return request<AppointmentRich[]>(`/agendamentos?${params}`);
 };
 export const getAppointment = (id: string) => request<AppointmentRich>(`/agendamentos/${id}`);
+export const listPatientAppointments = (patientId: string) =>
+  request<AppointmentRich[]>(`/agendamentos?${new URLSearchParams({ patientId })}`);
 export const createAppointment = (body: AppointmentCreate) =>
   request<AppointmentRich | RecurrenceResult>("/agendamentos", { method: "POST", body: JSON.stringify(body) });
 export const updateAppointment = (id: string, body: AppointmentUpdate) =>

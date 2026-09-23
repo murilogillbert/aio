@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, Award, CheckCircle, Minus, Plug, TrendingDown, TrendingUp, XCircle } from "lucide-react";
-import { Badge, Card, Select, Skeleton } from "../../components/ui";
+import { Badge, Button, Card, Input, Select, Skeleton } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { currency, todayLocalDate } from "../../utils";
 import {
@@ -69,6 +69,19 @@ function PeriodSelector({ value, onChange }: { value: string; onChange: (v: stri
     <Select label="Período" value={value} onChange={(event) => onChange(event.target.value)}>
       {PERIODOS.map((period) => <option key={period} value={period}>{periodoLabel(period)}</option>)}
     </Select>
+  );
+}
+
+function CustomRangePicker({ start, end, onChange }: { start: string; end: string; onChange: (start: string, end: string) => void }) {
+  return (
+    <Card className="mb-4">
+      <p className="mb-2 text-sm font-medium">Ou escolha um período personalizado</p>
+      <div className="flex flex-wrap items-end gap-2">
+        <Input label="De" type="date" value={start} onChange={(event) => onChange(event.target.value, end)} />
+        <Input label="Até" type="date" value={end} onChange={(event) => onChange(start, event.target.value)} />
+        {start && end ? <Button type="button" variant="ghost" onClick={() => onChange("", "")}>Limpar</Button> : null}
+      </div>
+    </Card>
   );
 }
 
@@ -147,12 +160,16 @@ export function AdminDashboardPage() {
 
 export function AdminFaturamentoPage() {
   const [period, setPeriod] = useState("30d");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const customRange = customStart && customEnd ? { start: customStart, end: customEnd } : undefined;
   const [data, setData] = useState<MetricsFaturamento | null>(null);
-  useEffect(() => { void getFaturamento(period).then(setData); }, [period]);
+  useEffect(() => { void getFaturamento(period, customRange).then(setData); }, [period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!data) return <Skeleton className="h-72" />;
   return (
     <>
-      <PageHeader title="Faturamento" description="Receita, repasses, custos, comissão, receita líquida e margem." actions={<PeriodSelector value={period} onChange={setPeriod} />} />
+      <PageHeader title="Faturamento" description="Receita, repasses, custos, comissão, receita líquida e margem." actions={<PeriodSelector value={period} onChange={(value) => { setPeriod(value); setCustomStart(""); setCustomEnd(""); }} />} />
+      <CustomRangePicker start={customStart} end={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
       <StatGrid>
         <StatCard label="Receita bruta" value={currency(data.totalRevenue)} hint={`${data.revenueTrend > 0 ? "+" : ""}${data.revenueTrend}% vs anterior`} />
         <StatCard label="Repasses (comissões)" value={currency(data.totalPayout)} />
@@ -163,6 +180,11 @@ export function AdminFaturamentoPage() {
         <StatCard label="Atendimentos" value={String(data.totalAppointments)} hint={`Concluídos ${data.completedAppointments}`} />
         <StatCard label="Ticket médio" value={currency(data.ticketMedio)} />
         <StatCard label="Inadimplência" value={currency(data.delinquency)} hint="Realizados sem pagamento" />
+      </StatGrid>
+      <StatGrid>
+        <StatCard label="Cancelamentos" value={String(data.cancelledCount)} />
+        <StatCard label="Confirmações" value={String(data.confirmedCount)} />
+        <StatCard label="Não compareceu após confirmar" value={String(data.noShowAfterConfirmationCount)} />
       </StatGrid>
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card><h2 className="mb-3 font-bold">Por método de pagamento</h2><DistributionBar items={data.byMethod} /></Card>
@@ -190,6 +212,18 @@ export function AdminFaturamentoPage() {
             {!data.payouts.length ? <p className="text-sm text-brown-mid">Sem comissões registradas no período.</p> : null}
           </div>
         </Card>
+        <Card>
+          <h2 className="mb-3 font-bold">Receita por paciente</h2>
+          <div className="grid max-h-72 gap-2 overflow-y-auto text-sm">
+            {data.byPatient.slice(0, 20).map((entry) => (
+              <div key={entry.patientId + entry.label} className="flex items-center justify-between rounded-lg bg-bg-secondary p-3">
+                <span>{entry.label} <span className="text-xs text-brown-mid">({entry.appointments} atendimento{entry.appointments === 1 ? "" : "s"})</span></span>
+                <strong>{currency(entry.revenue)}</strong>
+              </div>
+            ))}
+            {!data.byPatient.length ? <p className="text-sm text-brown-mid">Sem pagamentos no período.</p> : null}
+          </div>
+        </Card>
       </div>
       <Card className="mt-4">
         <h2 className="mb-3 font-bold">Evolução mensal</h2>
@@ -203,13 +237,17 @@ export function AdminFaturamentoPage() {
 
 export function AdminMetricasProfissionaisPage() {
   const [period, setPeriod] = useState("30d");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const customRange = customStart && customEnd ? { start: customStart, end: customEnd } : undefined;
   const [items, setItems] = useState<ProfessionalMetric[]>([]);
-  useEffect(() => { void getProfessionalMetrics(period).then(setItems); }, [period]);
+  useEffect(() => { void getProfessionalMetrics(period, customRange).then(setItems); }, [period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
   const totalRevenue = items.reduce((sum, x) => sum + x.revenue, 0);
   const totalPayout = items.reduce((sum, x) => sum + x.netPayout, 0);
   return (
     <>
-      <PageHeader title="Métricas por profissional" description="Ranking, ocupação, comissão real, tendência e status calculado por thresholds." actions={<PeriodSelector value={period} onChange={setPeriod} />} />
+      <PageHeader title="Métricas por profissional" description="Ranking, ocupação, comissão real, tendência e status calculado por thresholds." actions={<PeriodSelector value={period} onChange={(value) => { setPeriod(value); setCustomStart(""); setCustomEnd(""); }} />} />
+      <CustomRangePicker start={customStart} end={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
       <StatGrid>
         <StatCard label="Receita total" value={currency(totalRevenue)} />
         <StatCard label="Repasses" value={currency(totalPayout)} />
@@ -244,6 +282,8 @@ export function AdminMetricasProfissionaisPage() {
               <div><span className="text-xs text-brown-mid">Ocupação</span><p className="font-bold">{entry.occupancy}%</p></div>
               <div><span className="text-xs text-brown-mid">Cancelamento</span><p className="font-bold">{entry.cancellationRate}%</p></div>
               <div><span className="text-xs text-brown-mid">Não compareceu</span><p className="font-bold">{entry.noShowCount}</p></div>
+              <div><span className="text-xs text-brown-mid">Confirmações</span><p className="font-bold">{entry.confirmedCount}</p></div>
+              <div><span className="text-xs text-brown-mid">Não compareceu após confirmar</span><p className="font-bold">{entry.noShowAfterConfirmationCount}</p></div>
               <div><span className="text-xs text-brown-mid">Novos pacientes</span><p className="font-bold">{entry.newPatients}</p></div>
               <div><span className="text-xs text-brown-mid">Retorno</span><p className="font-bold">{entry.returningPatients}</p></div>
             </div>
