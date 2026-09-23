@@ -702,7 +702,8 @@ function AppointmentFormModal({ open, onClose, title, form, setForm, services, p
         <div className="grid gap-3 md:grid-cols-2">
           <Select label="Serviço" value={form.serviceId} onChange={(event) => {
             const next = services.find((service) => service.id === event.target.value);
-            setForm({ ...form, serviceId: event.target.value, duration: next ? String(next.durationMinutes) : form.duration });
+            const planStillValid = next && form.planId ? next.plans.some((plan) => plan.planId === form.planId) : false;
+            setForm({ ...form, serviceId: event.target.value, duration: next ? String(next.durationMinutes) : form.duration, planId: planStillValid ? form.planId : "" });
           }} required>
             <option value="">Selecione</option>
             {services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
@@ -711,6 +712,12 @@ function AppointmentFormModal({ open, onClose, title, form, setForm, services, p
             <option value="">Selecione</option>
             {professionals.filter((pro) => !selectedService || selectedService.professionalIds?.includes(pro.id) !== false).map((pro) => <option key={pro.id} value={pro.id}>{pro.name}</option>)}
           </Select>
+          {selectedService?.plans.length ? (
+            <Select label="Convênio" value={form.planId} onChange={(event) => setForm({ ...form, planId: event.target.value })}>
+              <option value="">Particular</option>
+              {selectedService.plans.map((plan) => <option key={plan.planId} value={plan.planId}>{plan.planName}</option>)}
+            </Select>
+          ) : null}
           <Input label="Data" type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required />
           <Select label="Hora" value={form.startTime} onChange={(event) => setForm({ ...form, startTime: event.target.value })}>
             {TIME_SLOTS.map((time) => <option key={time}>{time}</option>)}
