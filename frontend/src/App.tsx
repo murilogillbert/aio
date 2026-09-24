@@ -135,6 +135,7 @@ const receptionLinks: SidebarLink[] = [
 
 const adminLinks: SidebarLink[] = [
   { to: "/admin", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { to: "/admin/agenda", label: "Agenda", icon: <CalendarDays className="h-4 w-4" /> },
   { to: "/admin/usuarios", label: "Usuários & papéis", icon: <UserRound className="h-4 w-4" /> },
   { to: "/admin/profissionais", label: "Profissionais", icon: <UsersRound className="h-4 w-4" /> },
   { to: "/admin/servicos", label: "Serviços", icon: <Stethoscope className="h-4 w-4" /> },
@@ -214,6 +215,7 @@ export default function App() {
       <Route element={<RequireRole role="admin" />}>
         <Route element={<InternalLayout links={adminLinks} title="Administração" />}>
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/agenda" element={<ReceptionAgenda />} />
           <Route path="/admin/usuarios" element={<AdminUsers />} />
           <Route path="/admin/profissionais" element={<AdminProfessionals />} />
           <Route path="/admin/servicos" element={<AdminServices />} />

@@ -31,6 +31,7 @@ export const toAppointmentRich = (appointment: AppointmentWithRelations) => {
     roomId: appointment.roomId,
     roomName: appointment.room?.name ?? null,
     planId: appointment.planId,
+    customPrice: appointment.customPrice ? Number(appointment.customPrice) : null,
     startTime: combineIso(dateStr, appointment.time),
     endTime: combineIso(dateStr, endTime),
     status: appointment.status,

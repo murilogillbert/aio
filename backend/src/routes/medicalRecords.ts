@@ -5,6 +5,7 @@ import { requireAuth, requireRole, type AuthUser } from "../middleware/auth.js";
 import { badRequest, forbidden, notFound } from "../lib/httpError.js";
 import { toMedicalRecordDto, toSessionNoteDto } from "../dto/medicalRecord.js";
 import { myProfessionalId } from "../lib/actor.js";
+import { autoRegisterCompletionPayment } from "../lib/commission.js";
 
 const router = Router();
 router.use(requireAuth, requireRole("admin", "recepcao", "profissional"));
@@ -227,6 +228,7 @@ router.post(
 
     if (existing.appointment.status !== "Cancelado" && existing.appointment.status !== "Realizado") {
       await prisma.appointment.update({ where: { id: existing.appointmentId }, data: { status: "Realizado" } });
+      await autoRegisterCompletionPayment(existing.appointmentId);
     }
 
     res.json(toSessionNoteDto(note, { ...existing.appointment, patientId: existing.appointment.patientId }, false));

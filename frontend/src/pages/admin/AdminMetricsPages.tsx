@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, Award, CheckCircle, Minus, Plug, TrendingDown, TrendingUp, XCircle } from "lucide-react";
 import { Badge, Button, Card, Input, Select, Skeleton } from "../../components/ui";
@@ -9,13 +9,20 @@ import {
   getFaturamento,
   getMovimento,
   getProfessionalMetrics,
+  getProfissionais,
   getServiceMetrics,
+  getServicos,
+  searchPatients,
 } from "../../services/api";
+import type { MetricsFilters } from "../../services/api";
 import type {
   MetricsDashboard,
   MetricsFaturamento,
   MetricsMovimento,
+  PatientRich,
+  Professional,
   ProfessionalMetric,
+  Service,
   ServiceMetric,
 } from "../../types";
 
@@ -80,6 +87,100 @@ function CustomRangePicker({ start, end, onChange }: { start: string; end: strin
         <Input label="De" type="date" value={start} onChange={(event) => onChange(event.target.value, end)} />
         <Input label="Até" type="date" value={end} onChange={(event) => onChange(start, event.target.value)} />
         {start && end ? <Button type="button" variant="ghost" onClick={() => onChange("", "")}>Limpar</Button> : null}
+      </div>
+    </Card>
+  );
+}
+
+function MetricsFilterBar({
+  filters,
+  onChange,
+  showProfessional = true,
+}: {
+  filters: MetricsFilters & { patientLabel?: string };
+  onChange: (next: MetricsFilters & { patientLabel?: string }) => void;
+  showProfessional?: boolean;
+}) {
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [patientQuery, setPatientQuery] = useState("");
+  const [patientResults, setPatientResults] = useState<PatientRich[]>([]);
+  const [showPatientResults, setShowPatientResults] = useState(false);
+
+  useEffect(() => {
+    getProfissionais().then((items) => setProfessionals(items.filter((item) => item.role === "profissional")));
+    getServicos().then(setServices);
+  }, []);
+
+  useEffect(() => {
+    if (!patientQuery.trim()) { setPatientResults([]); return; }
+    const timer = window.setTimeout(() => void searchPatients(patientQuery).then(setPatientResults), 250);
+    return () => window.clearTimeout(timer);
+  }, [patientQuery]);
+
+  const plans = useMemo(() => {
+    const byId = new Map<string, string>();
+    services.forEach((service) => service.plans.forEach((plan) => byId.set(plan.planId, plan.planName)));
+    return [...byId.entries()].map(([planId, planName]) => ({ planId, planName }));
+  }, [services]);
+
+  const hasFilters = Boolean(filters.professionalId || filters.patientId || filters.planId || filters.serviceId);
+
+  return (
+    <Card className="mb-4">
+      <p className="mb-2 text-sm font-medium">Filtros</p>
+      <div className="flex flex-wrap items-end gap-2">
+        {showProfessional ? (
+          <Select label="Profissional" value={filters.professionalId ?? ""} onChange={(event) => onChange({ ...filters, professionalId: event.target.value || undefined })} className="min-w-40">
+            <option value="">Todos</option>
+            {professionals.map((pro) => <option key={pro.id} value={pro.id}>{pro.name}</option>)}
+          </Select>
+        ) : null}
+        <Select label="Serviço" value={filters.serviceId ?? ""} onChange={(event) => onChange({ ...filters, serviceId: event.target.value || undefined })} className="min-w-40">
+          <option value="">Todos</option>
+          {services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
+        </Select>
+        <Select label="Convênio" value={filters.planId ?? ""} onChange={(event) => onChange({ ...filters, planId: event.target.value || undefined })} className="min-w-36">
+          <option value="">Todos</option>
+          {plans.map((plan) => <option key={plan.planId} value={plan.planId}>{plan.planName}</option>)}
+        </Select>
+        <div className="relative">
+          <label className="grid gap-2 text-sm">
+            <span className="font-medium">Paciente</span>
+            <input
+              className="min-h-11 w-48 rounded-lg border border-brown-mid/25 bg-surface px-3 text-sm"
+              value={filters.patientId ? (filters.patientLabel ?? "") : patientQuery}
+              onChange={(event) => {
+                setPatientQuery(event.target.value);
+                setShowPatientResults(true);
+                if (filters.patientId) onChange({ ...filters, patientId: undefined, patientLabel: undefined });
+              }}
+              onFocus={() => setShowPatientResults(true)}
+              placeholder="Buscar paciente"
+            />
+          </label>
+          {showPatientResults && patientResults.length > 0 ? (
+            <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-brown-mid/25 bg-surface shadow-soft">
+              {patientResults.map((patient) => (
+                <button
+                  key={patient.id}
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-bg-secondary"
+                  onClick={() => {
+                    onChange({ ...filters, patientId: patient.id, patientLabel: patient.name });
+                    setPatientQuery("");
+                    setShowPatientResults(false);
+                  }}
+                >
+                  {patient.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        {hasFilters ? (
+          <Button type="button" variant="ghost" onClick={() => { onChange({}); setPatientQuery(""); }}>Limpar filtros</Button>
+        ) : null}
       </div>
     </Card>
   );
@@ -163,13 +264,15 @@ export function AdminFaturamentoPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const customRange = customStart && customEnd ? { start: customStart, end: customEnd } : undefined;
+  const [filters, setFilters] = useState<MetricsFilters & { patientLabel?: string }>({});
   const [data, setData] = useState<MetricsFaturamento | null>(null);
-  useEffect(() => { void getFaturamento(period, customRange).then(setData); }, [period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void getFaturamento(period, customRange, filters).then(setData); }, [period, customStart, customEnd, filters]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!data) return <Skeleton className="h-72" />;
   return (
     <>
       <PageHeader title="Faturamento" description="Receita, repasses, custos, comissão, receita líquida e margem." actions={<PeriodSelector value={period} onChange={(value) => { setPeriod(value); setCustomStart(""); setCustomEnd(""); }} />} />
       <CustomRangePicker start={customStart} end={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
+      <MetricsFilterBar filters={filters} onChange={setFilters} />
       <StatGrid>
         <StatCard label="Receita bruta" value={currency(data.totalRevenue)} hint={`${data.revenueTrend > 0 ? "+" : ""}${data.revenueTrend}% vs anterior`} />
         <StatCard label="Repasses (comissões)" value={currency(data.totalPayout)} />
@@ -240,14 +343,16 @@ export function AdminMetricasProfissionaisPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const customRange = customStart && customEnd ? { start: customStart, end: customEnd } : undefined;
+  const [filters, setFilters] = useState<MetricsFilters & { patientLabel?: string }>({});
   const [items, setItems] = useState<ProfessionalMetric[]>([]);
-  useEffect(() => { void getProfessionalMetrics(period, customRange).then(setItems); }, [period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void getProfessionalMetrics(period, customRange, filters).then(setItems); }, [period, customStart, customEnd, filters]); // eslint-disable-line react-hooks/exhaustive-deps
   const totalRevenue = items.reduce((sum, x) => sum + x.revenue, 0);
   const totalPayout = items.reduce((sum, x) => sum + x.netPayout, 0);
   return (
     <>
       <PageHeader title="Métricas por profissional" description="Ranking, ocupação, comissão real, tendência e status calculado por thresholds." actions={<PeriodSelector value={period} onChange={(value) => { setPeriod(value); setCustomStart(""); setCustomEnd(""); }} />} />
       <CustomRangePicker start={customStart} end={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
+      <MetricsFilterBar filters={filters} onChange={setFilters} />
       <StatGrid>
         <StatCard label="Receita total" value={currency(totalRevenue)} />
         <StatCard label="Repasses" value={currency(totalPayout)} />

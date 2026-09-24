@@ -123,7 +123,12 @@ export function PatientAppointments() {
                     {appointment.dependentName ? <p className="mt-1 text-xs font-medium text-primary">Para {appointment.dependentName} (dependente)</p> : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Badge tone={appointment.status === "Cancelado" ? "danger" : appointment.status === "Realizado" ? "success" : "neutral"}>{appointment.status}</Badge>
+                    <Badge tone={appointment.status === "Cancelado" ? "danger" : appointment.status === "Realizado" ? "success" : "neutral"}>Status: {appointment.status}</Badge>
+                    {appointment.status !== "Cancelado" ? (
+                      <Badge tone={appointment.patientConfirmation === "Confirmado" ? "success" : appointment.patientConfirmation === "NaoConfirmado" ? "danger" : "warning"}>
+                        Confirmação: {appointment.patientConfirmation}
+                      </Badge>
+                    ) : null}
                     {appointment.paymentStatus !== "PAID" && appointment.status !== "Cancelado" ? (
                       <Button variant="secondary" onClick={() => setPaying(appointment.id)}><CreditCard className="h-4 w-4" />Pagar</Button>
                     ) : null}

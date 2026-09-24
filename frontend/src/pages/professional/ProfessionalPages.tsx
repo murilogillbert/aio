@@ -83,8 +83,13 @@ export function ProfessionalDashboard() {
 
 export function ProfessionalAgenda() {
   const { user } = useAuth();
-  const { slots, loading } = useAgendaSlots(user?.professionalId);
+  const { slots, loading: loadingSlots } = useAgendaSlots(user?.professionalId);
   const days = Array.from(new Set(slots.slice(0, 120).map((slot) => slot.date))).slice(0, 7);
+  const rangeStart = days[0] ?? todayLocalDate();
+  const rangeEnd = days[days.length - 1] ?? todayLocalDate();
+  const { appointments, loading: loadingAppointments } = useAppointmentsRange(rangeStart, rangeEnd);
+  const appointmentById = new Map(appointments.map((item) => [item.id, item]));
+  const loading = loadingSlots || loadingAppointments;
 
   return (
     <>
@@ -97,14 +102,19 @@ export function ProfessionalAgenda() {
             <Card key={day}>
               <h2 className="font-bold">{dateLabel(day)}</h2>
               <div className="mt-3 grid gap-2">
-                {slots.filter((slot) => slot.date === day).slice(0, 8).map((slot) => (
-                  <div key={slot.id} className="flex items-center justify-between gap-2 rounded-lg bg-bg-secondary px-3 py-2 text-sm">
-                    <span>{slot.time} - {slot.available ? "Disponível" : "Agendado"}</span>
-                    {!slot.available && slot.appointmentId ? (
-                      <Link className="text-xs font-bold text-primary" to={`/profissional/agendamentos/${slot.appointmentId}/evolucao`}>Evolução</Link>
-                    ) : null}
-                  </div>
-                ))}
+                {slots.filter((slot) => slot.date === day).slice(0, 8).map((slot) => {
+                  const appt = slot.appointmentId ? appointmentById.get(slot.appointmentId) : undefined;
+                  return (
+                    <div key={slot.id} className="flex items-center justify-between gap-2 rounded-lg bg-bg-secondary px-3 py-2 text-sm">
+                      <span>
+                        {slot.time} - {slot.available ? "Disponível" : appt ? `${appt.patientName}${appt.dependentName ? ` (para ${appt.dependentName})` : ""}` : "Agendado"}
+                      </span>
+                      {!slot.available && slot.appointmentId ? (
+                        <Link className="text-xs font-bold text-primary" to={`/profissional/agendamentos/${slot.appointmentId}/evolucao`}>Evolução</Link>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           ))}
@@ -236,7 +246,7 @@ export function ProfessionalMetrics() {
               />
             </Card>
             <Card>
-              <h2 className="mb-4 font-bold">Formas de pagamento</h2>
+              <h2 className="mb-4 font-bold">Sua comissão por forma de pagamento</h2>
               {metric.byMethod.length === 0 ? <p className="text-sm text-brown-mid">Sem pagamentos no período.</p> : (
                 <div className="grid gap-2 text-sm">
                   {metric.byMethod.map((entry) => (
@@ -246,7 +256,7 @@ export function ProfessionalMetrics() {
               )}
             </Card>
             <Card>
-              <h2 className="mb-4 font-bold">Convênios atendidos</h2>
+              <h2 className="mb-4 font-bold">Sua comissão por convênio</h2>
               {metric.byPlan.length === 0 ? <p className="text-sm text-brown-mid">Sem atendimentos no período.</p> : (
                 <div className="grid gap-2 text-sm">
                   {metric.byPlan.map((entry) => (
@@ -257,7 +267,7 @@ export function ProfessionalMetrics() {
             </Card>
           </div>
           <Card className="mt-4">
-            <h2 className="mb-4 font-bold">Atendimentos por paciente</h2>
+            <h2 className="mb-4 font-bold">Sua comissão por paciente atendido</h2>
             {metric.byPatient.length === 0 ? <p className="text-sm text-brown-mid">Sem atendimentos no período.</p> : (
               <div className="grid gap-2 text-sm">
                 {metric.byPatient.map((entry) => (

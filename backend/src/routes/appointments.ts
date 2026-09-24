@@ -13,59 +13,13 @@ import {
   notifyAppointmentCancelled,
   notifyAppointmentConfirmed,
   notifyAppointmentCreated,
+  notifyPatientArrived,
 } from "../lib/notifications.js";
-import { computeCommission } from "../lib/commission.js";
+import { autoRegisterCompletionPayment, computeCommission, resolveAppointmentPrice } from "../lib/commission.js";
 import { deleteAppointmentSafe, deleteFutureAppointmentsSafe } from "../lib/deleteGuard.js";
 
 const router = Router();
 router.use(requireAuth, requireRole("admin", "recepcao", "profissional", "paciente"));
-
-// Ao marcar como Realizado, credita o profissional automaticamente — sem depender da recepção cobrar depois.
-// appointment.payment é único por agendamento (constraint no schema), então isso nunca duplica um pagamento/comissão
-// já registrado antes (pago online, cobrado manualmente antes da conclusão etc.) — vira um no-op nesses casos.
-const autoRegisterCompletionPayment = async (appointmentId: string) => {
-  const appointment = await prisma.appointment.findUnique({
-    where: { id: appointmentId },
-    include: { service: true, professional: true, payment: true },
-  });
-  if (!appointment || appointment.payment) return;
-
-  let amount = Number(appointment.service.basePrice);
-  if (appointment.planId) {
-    const planService = await prisma.planService.findUnique({
-      where: { planId_serviceId: { planId: appointment.planId, serviceId: appointment.serviceId } },
-    });
-    if (planService?.customPrice) amount = Number(planService.customPrice);
-  }
-
-  const { commissionAmount, commissionPct, taxPercent, netAmount } = await computeCommission(
-    appointment.professionalId,
-    appointment.serviceId,
-    amount,
-    Number(appointment.professional.defaultCommissionPercent),
-  );
-
-  await prisma.payment.create({
-    data: { appointmentId: appointment.id, grossAmount: amount, method: "Automático", billingType: "AUTO", paidAt: new Date() },
-  });
-  await prisma.commission.create({
-    data: {
-      appointmentId: appointment.id,
-      professionalId: appointment.professionalId,
-      amount: commissionAmount,
-      percent: commissionPct,
-      taxPercent,
-      netAmount,
-    },
-  });
-  await prisma.movementLog.create({
-    data: {
-      eventType: "PAYMENT_CONFIRMED",
-      description: `Pagamento de ${amount} confirmado automaticamente ao concluir o agendamento ${appointment.id}`,
-    },
-  });
-  await notifyAdminsPaymentConfirmed(appointment.id, amount);
-};
 
 router.get(
   "/",
@@ -125,6 +79,7 @@ router.post(
       serviceId?: string;
       roomId?: string | null;
       planId?: string | null;
+      customPrice?: number | null;
       startTime?: string;
       durationMinutes?: number;
       notes?: string;
@@ -182,6 +137,7 @@ router.post(
           serviceId: body.serviceId,
           roomId: body.roomId ?? null,
           planId: body.planId ?? null,
+          customPrice: body.customPrice ?? null,
           date: dateOnly(currentDate),
           time,
           status: "Agendado",
@@ -253,6 +209,7 @@ router.put(
       serviceId?: string;
       roomId?: string | null;
       planId?: string | null;
+      customPrice?: number | null;
       startTime?: string;
       notes?: string;
       appointmentType?: "Presencial" | "Online";
@@ -264,6 +221,7 @@ router.put(
     if (body.serviceId !== undefined) data.serviceId = body.serviceId;
     if (body.roomId !== undefined) data.roomId = body.roomId;
     if (body.planId !== undefined) data.planId = body.planId;
+    if (body.customPrice !== undefined) data.customPrice = body.customPrice;
     if (body.notes !== undefined) data.notes = body.notes;
     if (body.appointmentType !== undefined) data.type = body.appointmentType;
     if (body.startTime !== undefined) {
@@ -371,6 +329,7 @@ router.post(
     await prisma.movementLog.create({
       data: { eventType: "CHECK_IN", description: `Check-in do agendamento ${existing.id}` },
     });
+    await notifyPatientArrived(existing.id, { id: req.user!.id, fullName: req.user!.fullName });
 
     res.json({ ok: true, message: "Check-in registrado." });
   }),
@@ -423,7 +382,10 @@ router.post(
     });
     await notifyAdminsPaymentConfirmed(appointment.id, amount);
 
-    res.json({ paymentId: payment.id, commissionAmount, commissionPct, taxPercent, netAmount, message: "Pagamento registrado com sucesso." });
+    // Comissão do profissional é informação financeira dele — só o admin vê o detalhe aqui;
+    // a recepção só recebe a confirmação de que o pagamento foi registrado.
+    const commissionDetails = req.user!.role === "admin" ? { commissionAmount, commissionPct, taxPercent, netAmount } : {};
+    res.json({ paymentId: payment.id, ...commissionDetails, message: "Pagamento registrado com sucesso." });
   }),
 );
 

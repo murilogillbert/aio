@@ -88,6 +88,43 @@ export const notifyNewAppointmentInternally = async (appointmentId: string): Pro
   });
 };
 
+// Avisa o profissional, pelo canal interno de mensagens, quando a recepção faz check-in
+// (notifica chegada) de um paciente — aparece nas mensagens dela junto com o restante da
+// conversa com quem fez o check-in, permitindo responder.
+export const notifyPatientArrived = async (
+  appointmentId: string,
+  checkedInBy: { id: string; fullName: string },
+): Promise<void> => {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { professional: true, patient: { include: { user: true } }, dependent: true, service: true },
+  });
+  if (!appointment?.professional.userId) return;
+  if (appointment.professional.userId === checkedInBy.id) return;
+
+  const professionalUserId = appointment.professional.userId;
+  const patientName = appointment.dependent?.fullName ?? appointment.patient.user.fullName;
+  const body = `Paciente ${patientName} chegou para o atendimento de ${appointment.service.name} às ${appointment.time}.`;
+
+  const recipientIds = [checkedInBy.id, professionalUserId];
+  let conversation = await prisma.conversation.findFirst({
+    where: { AND: recipientIds.map((userId) => ({ participants: { some: { userId } } })) },
+    include: { participants: true },
+  });
+  if (conversation && conversation.participants.length !== recipientIds.length) conversation = null;
+
+  if (!conversation) {
+    conversation = await prisma.conversation.create({
+      data: { title: "", channel: "Interno", participants: { create: recipientIds.map((userId) => ({ userId })) } },
+      include: { participants: true },
+    });
+  }
+
+  await prisma.message.create({
+    data: { conversationId: conversation.id, authorUserId: checkedInBy.id, authorName: checkedInBy.fullName, channel: "Interno", body },
+  });
+};
+
 export const notifyPatientRegistered = async (params: { email: string; fullName: string }): Promise<void> => {
   const html = `
     <div style="font-family: sans-serif; max-width: 480px;">

@@ -228,18 +228,30 @@ router.get(
   asyncHandler(async (req, res) => {
     const range = getRangeFromQuery(req.query as { periodo?: string; start?: string; end?: string });
     const previous = getPreviousRange(range);
+    const { professionalId, patientId, planId, serviceId } = req.query as {
+      professionalId?: string;
+      patientId?: string;
+      planId?: string;
+      serviceId?: string;
+    };
+    const extraFilter = {
+      ...(professionalId ? { professionalId } : {}),
+      ...(patientId ? { patientId } : {}),
+      ...(planId ? { planId } : {}),
+      ...(serviceId ? { serviceId } : {}),
+    };
 
     const payments = await prisma.payment.findMany({
-      where: { appointment: countAppointmentsInRange(range) },
+      where: { appointment: countAppointmentsInRange(range, extraFilter) },
       include: {
         appointment: { include: { service: true, plan: true, patient: { include: { user: true } }, dependent: true } },
       },
     });
     const totalRevenue = payments.reduce((sum, p) => sum + Number(p.grossAmount), 0);
-    const previousRevenue = await revenueForAppointments(countAppointmentsInRange(previous));
+    const previousRevenue = await revenueForAppointments(countAppointmentsInRange(previous, extraFilter));
 
     const commissions = await prisma.commission.findMany({
-      where: { appointment: countAppointmentsInRange(range) },
+      where: { appointment: countAppointmentsInRange(range, extraFilter) },
       include: { professional: true, appointment: { include: { payment: true } } },
     });
     const totalPayout = commissions.reduce((sum, c) => sum + Number(c.amount), 0);
@@ -249,7 +261,7 @@ router.get(
     const netRevenue = totalRevenue - totalPayout - totalCustos;
 
     const appointments = await prisma.appointment.findMany({
-      where: countAppointmentsInRange(range),
+      where: countAppointmentsInRange(range, extraFilter),
       include: { service: true, payment: true },
     });
     const completedAppointments = appointments.filter((a) => a.status === "Realizado").length;
@@ -364,13 +376,14 @@ const computeProfessionalMetric = async (
   professional: Professional,
   range: PeriodRange,
   firstDateByPatient: Map<string, Date | null>,
+  extraFilter: object = {},
 ) => {
   const appointments = await prisma.appointment.findMany({
-    where: countAppointmentsInRange(range, { professionalId: professional.id }),
+    where: countAppointmentsInRange(range, { professionalId: professional.id, ...extraFilter }),
     include: { service: true, payment: true, patient: { include: { user: true } }, dependent: true, plan: true },
   });
   const commissions = await prisma.commission.findMany({
-    where: { professionalId: professional.id, appointment: countAppointmentsInRange(range) },
+    where: { professionalId: professional.id, appointment: countAppointmentsInRange(range, extraFilter) },
   });
 
   const completedCount = appointments.filter((a) => a.status === "Realizado").length;
@@ -399,13 +412,18 @@ const computeProfessionalMetric = async (
     (a) => a.patientConfirmation === "Confirmado" && a.status === "NaoCompareceu",
   ).length;
 
+  // Essas 3 quebras são a visão do PRÓPRIO profissional — mostram o repasse líquido dele
+  // (Commission.netAmount), não o valor bruto que o paciente/convênio pagou.
+  const netByAppointmentId = new Map<string, number>();
+  commissions.forEach((c) => netByAppointmentId.set(c.appointmentId, (netByAppointmentId.get(c.appointmentId) ?? 0) + Number(c.netAmount)));
+
   const byPatientMap = new Map<string, { patientId: string; label: string; count: number; revenue: number }>();
   appointments.forEach((a) => {
     const key = a.dependentId ?? a.patientId;
     const label = a.dependent?.fullName ?? a.patient.user.fullName;
     const entry = byPatientMap.get(key) ?? { patientId: a.patientId, label, count: 0, revenue: 0 };
     entry.count += 1;
-    entry.revenue += a.payment ? Number(a.payment.grossAmount) : 0;
+    entry.revenue += netByAppointmentId.get(a.id) ?? 0;
     byPatientMap.set(key, entry);
   });
 
@@ -413,13 +431,13 @@ const computeProfessionalMetric = async (
   appointments.forEach((a) => {
     if (!a.payment) return;
     const label = a.payment.method || "Outro";
-    byMethodMap.set(label, (byMethodMap.get(label) ?? 0) + Number(a.payment.grossAmount));
+    byMethodMap.set(label, (byMethodMap.get(label) ?? 0) + (netByAppointmentId.get(a.id) ?? 0));
   });
 
   const byPlanMap = new Map<string, number>();
   appointments.forEach((a) => {
     const label = a.plan?.name ?? "Particular";
-    byPlanMap.set(label, (byPlanMap.get(label) ?? 0) + (a.payment ? Number(a.payment.grossAmount) : 0));
+    byPlanMap.set(label, (byPlanMap.get(label) ?? 0) + (netByAppointmentId.get(a.id) ?? 0));
   });
 
   return {
@@ -459,12 +477,25 @@ router.get(
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const range = getRangeFromQuery(req.query as { periodo?: string; start?: string; end?: string });
-    const professionals = await prisma.professional.findMany({ where: { providesCare: true } });
+    const { professionalId, patientId, planId, serviceId } = req.query as {
+      professionalId?: string;
+      patientId?: string;
+      planId?: string;
+      serviceId?: string;
+    };
+    const extraFilter = {
+      ...(patientId ? { patientId } : {}),
+      ...(planId ? { planId } : {}),
+      ...(serviceId ? { serviceId } : {}),
+    };
+    const professionals = await prisma.professional.findMany({
+      where: { providesCare: true, ...(professionalId ? { id: professionalId } : {}) },
+    });
     const firstDates = await firstAppointmentDates();
     const firstDateByPatient = new Map(firstDates.map((row) => [row.patientId, row._min.date]));
 
     const result = await Promise.all(
-      professionals.map((professional) => computeProfessionalMetric(professional, range, firstDateByPatient)),
+      professionals.map((professional) => computeProfessionalMetric(professional, range, firstDateByPatient, extraFilter)),
     );
 
     res.json(result);

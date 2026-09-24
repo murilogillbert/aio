@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar, CalendarRange, ChevronLeft, ChevronRight, Plus, Search, Trash2, X, Repeat, MessageCircle } from "lucide-react";
+import { Calendar, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Plus, Search, Trash2, X, Repeat, MessageCircle } from "lucide-react";
 import { Badge, Button, Card, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
 import { PageHeader } from "../../components/Page";
 import { useConfirm } from "../../context/ConfirmContext";
@@ -81,6 +81,7 @@ interface FormState {
   professionalId: string;
   serviceId: string;
   planId: string;
+  customPrice: string;
   date: string;
   startTime: string;
   duration: string;
@@ -93,7 +94,7 @@ export function ReceptionAgenda() {
   const confirm = useConfirm();
   const today = isoDate(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
-  const [viewMode, setViewMode] = useState<"day" | "week">("day");
+  const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRich[]>([]);
@@ -101,7 +102,15 @@ export function ReceptionAgenda() {
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [profFilter, setProfFilter] = useState("");
   const [profSearch, setProfSearch] = useState("");
+  const [patientSearch, setPatientSearch] = useState("");
+  const [planFilter, setPlanFilter] = useState("");
   const [showCancelled, setShowCancelled] = useState(true);
+
+  const plans = useMemo(() => {
+    const byId = new Map<string, string>();
+    services.forEach((service) => service.plans.forEach((plan) => byId.set(plan.planId, plan.planName)));
+    return [...byId.entries()].map(([planId, planName]) => ({ planId, planName }));
+  }, [services]);
 
   const [selectedAppt, setSelectedAppt] = useState<AppointmentRich | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -114,6 +123,12 @@ export function ReceptionAgenda() {
 
   const queryRange = useMemo(() => {
     if (viewMode === "day") return { start: `${selectedDate}T00:00:00`, end: `${selectedDate}T23:59:59` };
+    if (viewMode === "month") {
+      const base = new Date(`${selectedDate}T12:00:00`);
+      const monthStart = new Date(base.getFullYear(), base.getMonth(), 1);
+      const monthEnd = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+      return { start: `${isoDate(monthStart)}T00:00:00`, end: `${isoDate(monthEnd)}T23:59:59` };
+    }
     const base = new Date(`${selectedDate}T12:00:00`);
     const weekStart = startOfWeek(base);
     const weekEnd = addDays(weekStart, 6);
@@ -148,6 +163,7 @@ export function ReceptionAgenda() {
     professionalId: "",
     serviceId: "",
     planId: "",
+    customPrice: "",
     date: selectedDate,
     startTime: "08:00",
     duration: "60",
@@ -162,7 +178,12 @@ export function ReceptionAgenda() {
     return matchesSearch && matchesFilter;
   }), [professionals, profSearch, profFilter]);
 
-  const visibleAppts = useMemo(() => appointments.filter((appt) => showCancelled || appt.status !== "Cancelado"), [appointments, showCancelled]);
+  const visibleAppts = useMemo(() => appointments.filter((appt) => {
+    if (!showCancelled && appt.status === "Cancelado") return false;
+    if (patientSearch && !appt.patientName.toLowerCase().includes(patientSearch.toLowerCase())) return false;
+    if (planFilter && appt.planId !== planFilter) return false;
+    return true;
+  }), [appointments, showCancelled, patientSearch, planFilter]);
 
   const openNewModal = (overrides?: Partial<FormState>) => {
     setEditingId(null);
@@ -180,6 +201,7 @@ export function ReceptionAgenda() {
       professionalId: appt.professionalId,
       serviceId: appt.serviceId,
       planId: appt.planId ?? "",
+      customPrice: appt.customPrice != null ? String(appt.customPrice) : "",
       date: appt.startTime.slice(0, 10),
       startTime: fmtTime(appt.startTime),
       duration: String(durationMinutes(appt.startTime, appt.endTime)),
@@ -204,12 +226,14 @@ export function ReceptionAgenda() {
     }
     try {
       const startTime = `${form.date}T${form.startTime}:00`;
+      const customPrice = form.customPrice.trim() ? Number(form.customPrice) : null;
       if (editingId) {
         await updateAppointment(editingId, {
           patientId: form.patientId,
           professionalId: form.professionalId,
           serviceId: form.serviceId,
           planId: form.planId || null,
+          customPrice,
           startTime,
           durationMinutes: Number(form.duration),
           notes: form.notes,
@@ -222,6 +246,7 @@ export function ReceptionAgenda() {
           professionalId: form.professionalId,
           serviceId: form.serviceId,
           planId: form.planId || null,
+          customPrice,
           startTime,
           durationMinutes: Number(form.duration),
           notes: form.notes,
@@ -314,13 +339,15 @@ export function ReceptionAgenda() {
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" onClick={() => {
             const next = new Date(`${selectedDate}T12:00:00`);
-            next.setDate(next.getDate() - (viewMode === "week" ? 7 : 1));
+            if (viewMode === "month") next.setMonth(next.getMonth() - 1);
+            else next.setDate(next.getDate() - (viewMode === "week" ? 7 : 1));
             setSelectedDate(isoDate(next));
           }}><ChevronLeft className="h-4 w-4" /></Button>
           <input type="date" className="min-h-11 rounded-lg border border-brown-mid/25 bg-surface px-3 text-sm" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
           <Button variant="ghost" onClick={() => {
             const next = new Date(`${selectedDate}T12:00:00`);
-            next.setDate(next.getDate() + (viewMode === "week" ? 7 : 1));
+            if (viewMode === "month") next.setMonth(next.getMonth() + 1);
+            else next.setDate(next.getDate() + (viewMode === "week" ? 7 : 1));
             setSelectedDate(isoDate(next));
           }}><ChevronRight className="h-4 w-4" /></Button>
           <Button variant="secondary" onClick={() => setSelectedDate(today)}>Hoje</Button>
@@ -332,18 +359,32 @@ export function ReceptionAgenda() {
             <button className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-bold ${viewMode === "week" ? "bg-primary text-white" : "text-brown-mid"}`} onClick={() => setViewMode("week")}>
               <CalendarRange className="h-3 w-3" /> Semana
             </button>
+            <button className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-bold ${viewMode === "month" ? "bg-primary text-white" : "text-brown-mid"}`} onClick={() => setViewMode("month")}>
+              <CalendarDays className="h-3 w-3" /> Mês
+            </button>
           </div>
 
-          <div className="flex flex-1 items-center gap-2 md:flex-none">
+          <div className="flex flex-1 flex-wrap items-center gap-2 md:flex-none">
             <Select label="Profissional" value={profFilter} onChange={(event) => setProfFilter(event.target.value)} className="min-w-40">
               <option value="">Todos</option>
               {professionals.map((pro) => <option key={pro.id} value={pro.id}>{pro.name}</option>)}
             </Select>
+            <Select label="Convênio" value={planFilter} onChange={(event) => setPlanFilter(event.target.value)} className="min-w-36">
+              <option value="">Todos</option>
+              {plans.map((plan) => <option key={plan.planId} value={plan.planId}>{plan.planName}</option>)}
+            </Select>
             <label className="grid gap-2 text-sm">
-              <span className="font-medium">Buscar</span>
+              <span className="font-medium">Profissional (nome)</span>
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-brown-mid" />
                 <input className="min-h-11 rounded-lg border border-brown-mid/25 bg-surface pl-8 pr-2 text-sm" value={profSearch} onChange={(event) => setProfSearch(event.target.value)} placeholder="Nome" />
+              </div>
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium">Paciente</span>
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-brown-mid" />
+                <input className="min-h-11 rounded-lg border border-brown-mid/25 bg-surface pl-8 pr-2 text-sm" value={patientSearch} onChange={(event) => setPatientSearch(event.target.value)} placeholder="Nome do paciente" />
               </div>
             </label>
             <label className="ml-1 flex items-center gap-2 text-sm">
@@ -358,8 +399,13 @@ export function ReceptionAgenda() {
         <Skeleton className="h-96" />
       ) : viewMode === "day" ? (
         <DayGrid professionals={displayedProfs} appointments={visibleAppts.filter((appt) => appt.startTime.startsWith(selectedDate))} onCellClick={handleCellClick} onAppointmentClick={setSelectedAppt} />
-      ) : (
+      ) : viewMode === "week" ? (
         <WeekGrid selectedDate={selectedDate} professionals={displayedProfs} appointments={visibleAppts} onCellClick={handleCellClick} onAppointmentClick={setSelectedAppt} />
+      ) : (
+        <MonthList
+          appointments={visibleAppts.filter((appt) => displayedProfs.some((pro) => pro.id === appt.professionalId))}
+          onAppointmentClick={setSelectedAppt}
+        />
       )}
 
       <AppointmentFormModal
@@ -639,6 +685,48 @@ function DayColumn({ dayIso, appointments, onCellClick, onAppointmentClick }: {
   );
 }
 
+function MonthList({ appointments, onAppointmentClick }: {
+  appointments: AppointmentRich[];
+  onAppointmentClick: (appt: AppointmentRich) => void;
+}) {
+  const byDay = useMemo(() => {
+    const groups = new Map<string, AppointmentRich[]>();
+    appointments.forEach((appt) => {
+      const dayIso = appt.startTime.slice(0, 10);
+      groups.set(dayIso, [...(groups.get(dayIso) ?? []), appt]);
+    });
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [appointments]);
+
+  if (!byDay.length) return <Card><p className="text-sm text-brown-mid">Nenhum agendamento neste mês com os filtros atuais.</p></Card>;
+
+  return (
+    <div className="grid gap-3">
+      {byDay.map(([dayIso, dayAppts]) => (
+        <Card key={dayIso}>
+          <h3 className="mb-2 font-bold">{dateLabel(dayIso)}</h3>
+          <div className="grid gap-2">
+            {[...dayAppts].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((appt) => (
+              <button
+                key={appt.id}
+                type="button"
+                onClick={() => onAppointmentClick(appt)}
+                className="flex items-center justify-between gap-2 rounded-lg bg-bg-secondary p-3 text-left text-sm transition hover:bg-primary/10"
+              >
+                <div>
+                  <strong>{appt.startTime.slice(11, 16)} — {appt.patientName}</strong>
+                  <p className="text-xs text-brown-mid">{appt.serviceName} com {appt.professionalName}</p>
+                </div>
+                <Badge tone={statusTone(appt.status)}>{statusLabel(appt.status)}</Badge>
+              </button>
+            ))}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function statusTone(status: string): "neutral" | "success" | "warning" | "danger" {
   if (status === "Cancelado") return "danger";
   if (status === "Realizado" || status === "Confirmado" || status === "EmAndamento") return "success";
@@ -735,6 +823,14 @@ function AppointmentFormModal({ open, onClose, title, form, setForm, services, p
               {selectedService.plans.map((plan) => <option key={plan.planId} value={plan.planId}>{plan.planName}</option>)}
             </Select>
           ) : null}
+          <Input
+            label="Valor personalizado (opcional)"
+            type="number"
+            step="0.01"
+            placeholder={selectedService ? `Padrão: ${currency(selectedService.priceFrom)}` : "Deixe em branco para usar o padrão"}
+            value={form.customPrice}
+            onChange={(event) => setForm({ ...form, customPrice: event.target.value })}
+          />
           <Input label="Data" type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required />
           <Select label="Hora" value={form.startTime} onChange={(event) => setForm({ ...form, startTime: event.target.value })}>
             {TIME_SLOTS.map((time) => <option key={time}>{time}</option>)}
@@ -804,6 +900,9 @@ function AppointmentDrawer({ appointment, onClose, onEdit, onStatusChange, onCon
           {appointment.roomName ? (
             <div><span className="text-xs uppercase tracking-wide text-brown-mid">Sala</span><p className="font-bold">{appointment.roomName}</p></div>
           ) : null}
+          {appointment.customPrice != null ? (
+            <div><span className="text-xs uppercase tracking-wide text-brown-mid">Valor combinado</span><p className="font-bold">{currency(appointment.customPrice)}</p></div>
+          ) : null}
           <Select label="Status" value={appointment.status} onChange={(event) => onStatusChange(event.target.value)}>
             {STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </Select>
@@ -847,11 +946,16 @@ function PaymentModal({ appointment, services, onClose, onPaid }: { appointment:
     setPaying(true);
     try {
       const result = await payAppointment(appointment.id, Number(amount), method, methodDetail.trim() || undefined);
+      // Comissão do profissional só vem no retorno para o admin (a recepção não deve ver o
+      // valor/percentual de comissão de terceiros) — omite o trecho quando não vier.
+      const { commissionAmount, commissionPct, taxPercent, netAmount } = result;
       const commissionLabel =
-        result.taxPercent > 0
-          ? `Comissão líquida ${currency(result.netAmount)} (bruta ${currency(result.commissionAmount)}, ${result.commissionPct.toFixed(1)}% − ${result.taxPercent.toFixed(1)}% imposto)`
-          : `Comissão ${currency(result.commissionAmount)} (${result.commissionPct.toFixed(1)}%)`;
-      showToast("success", `${result.message} ${commissionLabel}`);
+        commissionAmount === undefined || commissionPct === undefined || taxPercent === undefined || netAmount === undefined
+          ? ""
+          : taxPercent > 0
+            ? ` Comissão líquida ${currency(netAmount)} (bruta ${currency(commissionAmount)}, ${commissionPct.toFixed(1)}% − ${taxPercent.toFixed(1)}% imposto)`
+            : ` Comissão ${currency(commissionAmount)} (${commissionPct.toFixed(1)}%)`;
+      showToast("success", `${result.message}${commissionLabel}`);
       await onPaid();
     } catch {
       showToast("error", "Não foi possível registrar o pagamento.");

@@ -234,18 +234,23 @@ export const testIntegration = (type: IntegrationType, payload?: Record<string, 
 
 // ─── Metrics ────────────────────────────────────────────────────────────────
 export type MetricsDateRange = { start: string; end: string };
-const rangeParams = (periodo: string, range?: MetricsDateRange, offset?: number) => {
+export type MetricsFilters = { professionalId?: string; patientId?: string; planId?: string; serviceId?: string };
+const rangeParams = (periodo: string, range?: MetricsDateRange, offset?: number, filters?: MetricsFilters) => {
   const params = new URLSearchParams();
   if (range) params.set("start", range.start), params.set("end", range.end);
   else params.set("periodo", periodo);
   if (offset) params.set("offset", String(offset));
+  if (filters?.professionalId) params.set("professionalId", filters.professionalId);
+  if (filters?.patientId) params.set("patientId", filters.patientId);
+  if (filters?.planId) params.set("planId", filters.planId);
+  if (filters?.serviceId) params.set("serviceId", filters.serviceId);
   return params.toString();
 };
 export const getDashboard = (periodo = "30d") => request<MetricsDashboard>(`/metricas/dashboard?periodo=${periodo}`);
-export const getFaturamento = (periodo = "30d", range?: MetricsDateRange) =>
-  request<MetricsFaturamento>(`/metricas/faturamento?${rangeParams(periodo, range)}`);
-export const getProfessionalMetrics = (periodo = "30d", range?: MetricsDateRange) =>
-  request<ProfessionalMetric[]>(`/metricas/profissionais?${rangeParams(periodo, range)}`);
+export const getFaturamento = (periodo = "30d", range?: MetricsDateRange, filters?: MetricsFilters) =>
+  request<MetricsFaturamento>(`/metricas/faturamento?${rangeParams(periodo, range, undefined, filters)}`);
+export const getProfessionalMetrics = (periodo = "30d", range?: MetricsDateRange, filters?: MetricsFilters) =>
+  request<ProfessionalMetric[]>(`/metricas/profissionais?${rangeParams(periodo, range, undefined, filters)}`);
 export const getMyProfessionalMetrics = (periodo = "30d", offset = 0, range?: MetricsDateRange) =>
   request<ProfessionalMetric | null>(`/metricas/profissionais/me?${rangeParams(periodo, range, offset)}`);
 export const getServiceMetrics = (periodo = "30d") => request<ServiceMetric[]>(`/metricas/servicos?periodo=${periodo}`);
@@ -275,7 +280,7 @@ export const deleteFutureAppointments = (id: string, cascade = false) =>
 export const checkinAppointment = (id: string) =>
   request<{ ok: boolean; message: string }>(`/agendamentos/${id}/checkin`, { method: "POST" });
 export const payAppointment = (id: string, amount: number, method: string, methodDetail?: string, paidBeforeCompletion = false) =>
-  request<{ paymentId: string; commissionAmount: number; commissionPct: number; taxPercent: number; netAmount: number; message: string }>(`/agendamentos/${id}/pagamento`, {
+  request<{ paymentId: string; commissionAmount?: number; commissionPct?: number; taxPercent?: number; netAmount?: number; message: string }>(`/agendamentos/${id}/pagamento`, {
     method: "POST",
     body: JSON.stringify({ amount, method, methodDetail, paidBeforeCompletion }),
   });

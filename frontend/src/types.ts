@@ -453,6 +453,7 @@ export type AppointmentRich = {
   roomId: string | null;
   roomName: string | null;
   planId: string | null;
+  customPrice: number | null;
   startTime: string;
   endTime: string;
   status: string;
@@ -472,6 +473,7 @@ export type AppointmentCreate = {
   serviceId: string;
   roomId?: string | null;
   planId?: string | null;
+  customPrice?: number | null;
   startTime: string;
   durationMinutes?: number;
   notes?: string;
@@ -486,6 +488,7 @@ export type AppointmentUpdate = Partial<{
   serviceId: string;
   roomId: string | null;
   planId: string | null;
+  customPrice: number | null;
   startTime: string;
   durationMinutes: number;
   notes: string;
