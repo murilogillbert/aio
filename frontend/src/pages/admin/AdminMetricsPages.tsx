@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Activity, AlertTriangle, Award, CheckCircle, Minus, Plug, TrendingDown, TrendingUp, XCircle } from "lucide-react";
 import { Badge, Button, Card, Input, Select, Skeleton } from "../../components/ui";
 import { PageHeader, StatCard, StatGrid } from "../../components/Page";
@@ -25,6 +25,37 @@ import type {
   Service,
   ServiceMetric,
 } from "../../types";
+
+const METRICS_TABS = [
+  { to: "/admin/metricas", label: "Visão geral" },
+  { to: "/admin/metricas/faturamento", label: "Faturamento" },
+  { to: "/admin/metricas/profissionais", label: "Por profissional" },
+  { to: "/admin/metricas/servicos", label: "Por serviço" },
+  { to: "/admin/metricas/movimento", label: "Movimento do dia" },
+  { to: "/admin/metricas/custos", label: "Custos" },
+  { to: "/admin/metricas/salas", label: "Salas" },
+  { to: "/admin/metricas/equipamentos", label: "Equipamentos" },
+];
+
+// As métricas ficam em 8 sub-páginas diferentes, mas só a "Visão geral" tinha entrada no
+// menu lateral — as outras (Faturamento, Por profissional etc., com todos os filtros
+// pedidos) só eram alcançáveis digitando a URL direto. Essas abas resolvem isso.
+export function MetricsTabs() {
+  const location = useLocation();
+  return (
+    <div className="mb-4 flex flex-wrap gap-1 border-b border-brown-mid/15">
+      {METRICS_TABS.map((tab) => (
+        <Link
+          key={tab.to}
+          to={tab.to}
+          className={`rounded-t-lg px-3 py-2 text-xs font-bold uppercase tracking-wide transition ${location.pathname === tab.to ? "bg-primary text-white" : "text-brown-mid hover:bg-bg-secondary"}`}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 const PERIODOS = ["7d", "30d", "3m", "12m"];
 const periodoLabel = (p: string) => ({ "7d": "7 dias", "30d": "30 dias", "3m": "3 meses", "12m": "12 meses" }[p] ?? p);
@@ -199,6 +230,7 @@ export function AdminDashboardPage() {
   if (loading || !data) return <Skeleton className="h-72" />;
   return (
     <>
+      <MetricsTabs />
       <PageHeader title="Visão executiva" description="KPIs do período + tendência vs período anterior + lista de espera em tempo real." actions={<PeriodSelector value={period} onChange={setPeriod} />} />
       <StatGrid>
         <StatCard label="Receita" value={currency(data.revenue)} hint={data.revenueTrend !== 0 ? `${data.revenueTrend > 0 ? "+" : ""}${data.revenueTrend}% vs anterior` : undefined} />
@@ -270,6 +302,7 @@ export function AdminFaturamentoPage() {
   if (!data) return <Skeleton className="h-72" />;
   return (
     <>
+      <MetricsTabs />
       <PageHeader title="Faturamento" description="Receita, repasses, custos, comissão, receita líquida e margem." actions={<PeriodSelector value={period} onChange={(value) => { setPeriod(value); setCustomStart(""); setCustomEnd(""); }} />} />
       <CustomRangePicker start={customStart} end={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
       <MetricsFilterBar filters={filters} onChange={setFilters} />
@@ -350,6 +383,7 @@ export function AdminMetricasProfissionaisPage() {
   const totalPayout = items.reduce((sum, x) => sum + x.netPayout, 0);
   return (
     <>
+      <MetricsTabs />
       <PageHeader title="Métricas por profissional" description="Ranking, ocupação, comissão real, tendência e status calculado por thresholds." actions={<PeriodSelector value={period} onChange={(value) => { setPeriod(value); setCustomStart(""); setCustomEnd(""); }} />} />
       <CustomRangePicker start={customStart} end={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
       <MetricsFilterBar filters={filters} onChange={setFilters} />
@@ -408,6 +442,7 @@ export function AdminMetricasServicosPage() {
   useEffect(() => { void getServiceMetrics(period).then(setItems); }, [period]);
   return (
     <>
+      <MetricsTabs />
       <PageHeader title="Métricas por serviço" description="Ranking por volume e receita, conversão, duração e cancelamento." actions={<PeriodSelector value={period} onChange={setPeriod} />} />
       <div className="grid gap-3">
         {items.map((entry) => (
@@ -443,6 +478,7 @@ export function AdminMovimentoPage() {
   const dateLabel = new Date(date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
   return (
     <>
+      <MetricsTabs />
       <PageHeader
         title="Movimento do dia"
         description={dateLabel}

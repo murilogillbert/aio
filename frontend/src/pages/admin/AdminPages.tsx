@@ -16,6 +16,7 @@ import {
   updateAdminCrud,
 } from "../../services/api";
 import { AdminServiceEditor } from "./AdminServiceEditor";
+import { MetricsTabs } from "./AdminMetricsPages";
 
 const fieldSets: Record<string, AdminCrudField[]> = {
   profissionais: [
@@ -332,10 +333,11 @@ export function AdminMetrics({ variant = "geral" }: { variant?: string }) {
     getMetricBreakdowns().then(setBreakdowns).catch(() => undefined);
   }, []);
   const latest = metrics.at(-1);
-  if (variant === "custos") return <AdminCrudPage resource="custos" title="Custos" description="Criar, editar e excluir custos fixos e variaveis usados no calculo de lucro." fields={fieldSets.custos} />;
-  if (variant === "movimento") return <AdminCrudPage resource="movimento" title="Log de movimento" description="Criar, editar e excluir eventos operacionais da trilha de atividade." fields={fieldSets.movimento} />;
+  if (variant === "custos") return <><MetricsTabs /><AdminCrudPage resource="custos" title="Custos" description="Criar, editar e excluir custos fixos e variaveis usados no calculo de lucro." fields={fieldSets.custos} /></>;
+  if (variant === "movimento") return <><MetricsTabs /><AdminCrudPage resource="movimento" title="Log de movimento" description="Criar, editar e excluir eventos operacionais da trilha de atividade." fields={fieldSets.movimento} /></>;
   return (
     <>
+      <MetricsTabs />
       <PageHeader title={titles[variant] ?? "Metricas"} description="Painel com dados reais do banco e acoes CRUD nas secoes operacionais." actions={<Select label="Periodo"><option>Ultimos 6 meses</option><option>Mes atual</option></Select>} />
       <StatGrid>
         <StatCard label="Receita" value={latest ? currency(latest.revenue) : "-"} />
