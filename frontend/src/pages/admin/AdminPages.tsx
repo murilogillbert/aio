@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, EmptyState, ImageUploadField, Input, Modal, Select, Skeleton, Textarea } from "../../components/ui";
-import { MiniBarChart, PageHeader, StatCard, StatGrid } from "../../components/Page";
+import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { useConfig } from "../../context/ConfigContext";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
@@ -10,7 +10,6 @@ import {
   ApiError,
   createAdminCrud,
   deleteAdminCrud,
-  getMetricBreakdowns,
   getMetricasGerais,
   listAdminCrud,
   updateAdminCrud,
@@ -315,42 +314,14 @@ export function AdminRecruitment() {
   return <AdminCrudPage resource="vagas" title="Recrutamento" description="Criar, editar, publicar, encerrar e excluir vagas." />;
 }
 
-export function AdminMetrics({ variant = "geral" }: { variant?: string }) {
-  const [metrics, setMetrics] = useState<MetricsPoint[]>([]);
-  const [breakdowns, setBreakdowns] = useState<{ serviceRankingMock: { label: string; value: number }[]; professionalRankingMock: { label: string; value: number }[] }>({ serviceRankingMock: [], professionalRankingMock: [] });
-  const titles: Record<string, string> = {
-    geral: "Metricas gerais",
-    custos: "Custos",
-    faturamento: "Faturamento",
-    salas: "Salas",
-    equipamentos: "Equipamentos",
-    servicos: "Servicos",
-    profissionais: "Profissionais",
-    movimento: "Log de movimento",
-  };
-  useEffect(() => {
-    getMetricasGerais().then(setMetrics).catch(() => setMetrics([]));
-    getMetricBreakdowns().then(setBreakdowns).catch(() => undefined);
-  }, []);
-  const latest = metrics.at(-1);
-  if (variant === "custos") return <><MetricsTabs /><AdminCrudPage resource="custos" title="Custos" description="Criar, editar e excluir custos fixos e variaveis usados no calculo de lucro." fields={fieldSets.custos} /></>;
-  if (variant === "movimento") return <><MetricsTabs /><AdminCrudPage resource="movimento" title="Log de movimento" description="Criar, editar e excluir eventos operacionais da trilha de atividade." fields={fieldSets.movimento} /></>;
-  return (
-    <>
-      <MetricsTabs />
-      <PageHeader title={titles[variant] ?? "Metricas"} description="Painel com dados reais do banco e acoes CRUD nas secoes operacionais." actions={<Select label="Periodo"><option>Ultimos 6 meses</option><option>Mes atual</option></Select>} />
-      <StatGrid>
-        <StatCard label="Receita" value={latest ? currency(latest.revenue) : "-"} />
-        <StatCard label="Lucro" value={latest ? currency(latest.profit) : "-"} />
-        <StatCard label="Ticket medio" value={latest ? currency(latest.ticketAverage) : "-"} />
-        <StatCard label="Cancelamento" value={latest ? `${latest.cancellationRate}%` : "-"} />
-      </StatGrid>
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Card><h2 className="mb-4 font-bold">Evolucao</h2><MiniBarChart data={metrics.map((item) => ({ label: item.month, value: item.revenue }))} /></Card>
-        <Card><h2 className="mb-4 font-bold">{variant === "profissionais" ? "Por profissional" : "Por servico"}</h2><MiniBarChart data={variant === "profissionais" ? breakdowns.professionalRankingMock : breakdowns.serviceRankingMock} /></Card>
-      </div>
-    </>
-  );
+// Só é roteada com variant="custos" hoje — as demais variantes que essa tela um dia teve
+// (salas/equipamentos/servicos/profissionais) ganharam páginas próprias com dados reais
+// em AdminMetricsPages.tsx.
+export function AdminMetrics({ variant = "custos" }: { variant?: string }) {
+  if (variant === "custos") {
+    return <><MetricsTabs /><AdminCrudPage resource="custos" title="Custos" description="Criar, editar e excluir custos fixos e variaveis usados no calculo de lucro." fields={fieldSets.custos} /></>;
+  }
+  return <><MetricsTabs /><EmptyState title="Métrica não disponível." /></>;
 }
 
 export function AdminSimpleConfig({ title, description, resource }: { title: string; description: string; resource?: string }) {

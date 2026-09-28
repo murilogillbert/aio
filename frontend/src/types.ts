@@ -416,6 +416,25 @@ export type ServiceMetric = {
   conversionRate: number;
 };
 
+export type RoomMetric = {
+  roomId: string;
+  name: string;
+  capacity: number;
+  appointments: number;
+  cancelledCount: number;
+  occupancy: number;
+};
+
+export type EquipmentMetric = {
+  equipmentId: string;
+  name: string;
+  category: string;
+  quantity: number;
+  status: string;
+  maintenanceDate: string | null;
+  usageCount: number;
+};
+
 export type MetricsMovimento = {
   totalAppointments: number;
   scheduled: number;

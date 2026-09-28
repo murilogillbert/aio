@@ -35,7 +35,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       {children}
       {pending ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-brown-dark/40 p-4" role="alertdialog" aria-modal="true">
-          <div className="w-full max-w-sm rounded-xl bg-surface p-5 shadow-soft">
+          <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-xl bg-surface p-5 shadow-soft">
             <div className="flex items-start gap-3">
               <div className={`rounded-full p-2 ${pending.danger ? "bg-red-100 text-red-700" : "bg-primary/10 text-primary"}`}>
                 <AlertTriangle className="h-5 w-5" />

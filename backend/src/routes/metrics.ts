@@ -560,6 +560,71 @@ router.get(
 );
 
 router.get(
+  "/salas",
+  requireAuth,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const range = getRangeFromQuery(req.query as { periodo?: string; start?: string; end?: string });
+    const rooms = await prisma.room.findMany({ where: { isActive: true } });
+
+    const result = await Promise.all(
+      rooms.map(async (room) => {
+        const appointments = await prisma.appointment.findMany({
+          where: countAppointmentsInRange(range, { roomId: room.id }),
+          include: { service: true },
+        });
+        const cancelledCount = appointments.filter((a) => a.status === "Cancelado" || a.status === "NaoCompareceu").length;
+        const minutesUsed = appointments
+          .filter((a) => a.status !== "Cancelado")
+          .reduce((sum, a) => sum + a.service.durationMinutes, 0);
+        const occupancy = Math.min(100, Math.round((minutesUsed / estimateAvailableMinutes(range.days)) * 10000) / 100);
+
+        return {
+          roomId: room.id,
+          name: room.name,
+          capacity: room.capacity,
+          appointments: appointments.length,
+          cancelledCount,
+          occupancy,
+        };
+      }),
+    );
+
+    res.json(result);
+  }),
+);
+
+router.get(
+  "/equipamentos",
+  requireAuth,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const range = getRangeFromQuery(req.query as { periodo?: string; start?: string; end?: string });
+    const equipments = await prisma.equipment.findMany({ where: { isActive: true } });
+
+    const result = await Promise.all(
+      equipments.map(async (equipment) => {
+        const usageCount = await prisma.appointmentEquipment.count({
+          where: { equipmentId: equipment.id, appointment: countAppointmentsInRange(range) },
+        });
+
+        return {
+          equipmentId: equipment.id,
+          name: equipment.name,
+          category: equipment.category,
+          quantity: equipment.quantity,
+          status: equipment.status,
+          maintenanceDate: equipment.maintenanceDate ? dateOnlyString(equipment.maintenanceDate) : null,
+          usageCount,
+        };
+      }),
+    );
+
+    res.json(result);
+  }),
+);
+
+router.get(
   "/movimento",
   requireAuth,
   requireRole("admin", "recepcao"),

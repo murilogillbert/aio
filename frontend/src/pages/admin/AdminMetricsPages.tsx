@@ -6,22 +6,26 @@ import { PageHeader, StatCard, StatGrid } from "../../components/Page";
 import { currency, todayLocalDate } from "../../utils";
 import {
   getDashboard,
+  getEquipmentMetrics,
   getFaturamento,
   getMovimento,
   getProfessionalMetrics,
   getProfissionais,
+  getRoomMetrics,
   getServiceMetrics,
   getServicos,
   searchPatients,
 } from "../../services/api";
 import type { MetricsFilters } from "../../services/api";
 import type {
+  EquipmentMetric,
   MetricsDashboard,
   MetricsFaturamento,
   MetricsMovimento,
   PatientRich,
   Professional,
   ProfessionalMetric,
+  RoomMetric,
   Service,
   ServiceMetric,
 } from "../../types";
@@ -463,6 +467,71 @@ export function AdminMetricasServicosPage() {
           </Card>
         ))}
         {!items.length ? <p className="text-sm text-brown-mid">Sem serviços no período.</p> : null}
+      </div>
+    </>
+  );
+}
+
+// ─── Salas ──────────────────────────────────────────────────────────────────
+
+export function AdminMetricasSalasPage() {
+  const [period, setPeriod] = useState("30d");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const customRange = customStart && customEnd ? { start: customStart, end: customEnd } : undefined;
+  const [items, setItems] = useState<RoomMetric[]>([]);
+  useEffect(() => { void getRoomMetrics(period, customRange).then(setItems); }, [period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <>
+      <MetricsTabs />
+      <PageHeader title="Métricas por sala" description="Agendamentos, cancelamentos e ocupação por sala no período." actions={<PeriodSelector value={period} onChange={(value) => { setPeriod(value); setCustomStart(""); setCustomEnd(""); }} />} />
+      <CustomRangePicker start={customStart} end={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
+      <div className="grid gap-3">
+        {items.map((entry) => (
+          <Card key={entry.roomId}>
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-bold">{entry.name}</h3>
+                <p className="text-xs text-brown-mid">Capacidade {entry.capacity} · {entry.appointments} agendamento{entry.appointments === 1 ? "" : "s"} · {entry.cancelledCount} cancelado{entry.cancelledCount === 1 ? "" : "s"}</p>
+              </div>
+              <Badge tone={entry.occupancy > 70 ? "success" : entry.occupancy > 30 ? "warning" : "neutral"}>{entry.occupancy}% ocupação</Badge>
+            </div>
+          </Card>
+        ))}
+        {!items.length ? <p className="text-sm text-brown-mid">Nenhuma sala ativa cadastrada.</p> : null}
+      </div>
+    </>
+  );
+}
+
+// ─── Equipamentos ───────────────────────────────────────────────────────────
+
+export function AdminMetricasEquipamentosPage() {
+  const [period, setPeriod] = useState("30d");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const customRange = customStart && customEnd ? { start: customStart, end: customEnd } : undefined;
+  const [items, setItems] = useState<EquipmentMetric[]>([]);
+  useEffect(() => { void getEquipmentMetrics(period, customRange).then(setItems); }, [period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <>
+      <MetricsTabs />
+      <PageHeader title="Métricas por equipamento" description="Uso em agendamentos, status e manutenção no período." actions={<PeriodSelector value={period} onChange={(value) => { setPeriod(value); setCustomStart(""); setCustomEnd(""); }} />} />
+      <CustomRangePicker start={customStart} end={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
+      <div className="grid gap-3">
+        {items.map((entry) => (
+          <Card key={entry.equipmentId}>
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-bold">{entry.name}</h3>
+                <p className="text-xs text-brown-mid">{entry.category || "Sem categoria"} · Quantidade {entry.quantity} · Usado em {entry.usageCount} agendamento{entry.usageCount === 1 ? "" : "s"}</p>
+                {entry.maintenanceDate ? <p className="text-xs text-brown-mid">Próxima manutenção: {entry.maintenanceDate}</p> : null}
+              </div>
+              <Badge tone={entry.status === "Operacional" ? "success" : "danger"}>{entry.status}</Badge>
+            </div>
+          </Card>
+        ))}
+        {!items.length ? <p className="text-sm text-brown-mid">Nenhum equipamento ativo cadastrado.</p> : null}
       </div>
     </>
   );

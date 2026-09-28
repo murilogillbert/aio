@@ -10,6 +10,7 @@ import type {
   ClinicConfig,
   Cost,
   Dependent,
+  EquipmentMetric,
   IntegrationsDto,
   IntegrationsPatch,
   Job,
@@ -29,6 +30,7 @@ import type {
   ProfessionalScheduleSlot,
   ProfessionalScheduleUpsert,
   RecurrenceResult,
+  RoomMetric,
   Service,
   ServiceDetail,
   ServiceMetric,
@@ -254,6 +256,10 @@ export const getProfessionalMetrics = (periodo = "30d", range?: MetricsDateRange
 export const getMyProfessionalMetrics = (periodo = "30d", offset = 0, range?: MetricsDateRange) =>
   request<ProfessionalMetric | null>(`/metricas/profissionais/me?${rangeParams(periodo, range, offset)}`);
 export const getServiceMetrics = (periodo = "30d") => request<ServiceMetric[]>(`/metricas/servicos?periodo=${periodo}`);
+export const getRoomMetrics = (periodo = "30d", range?: MetricsDateRange) =>
+  request<RoomMetric[]>(`/metricas/salas?${rangeParams(periodo, range)}`);
+export const getEquipmentMetrics = (periodo = "30d", range?: MetricsDateRange) =>
+  request<EquipmentMetric[]>(`/metricas/equipamentos?${rangeParams(periodo, range)}`);
 export const getMovimento = (data?: string) => request<MetricsMovimento>(`/metricas/movimento${data ? `?data=${data}` : ""}`);
 
 // ─── Appointments ───────────────────────────────────────────────────────────

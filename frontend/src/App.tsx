@@ -81,7 +81,9 @@ import { AdminIntegrations } from "./pages/admin/AdminIntegrations";
 import {
   AdminDashboardPage,
   AdminFaturamentoPage,
+  AdminMetricasEquipamentosPage,
   AdminMetricasProfissionaisPage,
+  AdminMetricasSalasPage,
   AdminMetricasServicosPage,
   AdminMovimentoPage,
 } from "./pages/admin/AdminMetricsPages";
@@ -236,8 +238,8 @@ export default function App() {
           <Route path="/admin/metricas" element={<AdminDashboardPage />} />
           <Route path="/admin/metricas/custos" element={<AdminMetrics variant="custos" />} />
           <Route path="/admin/metricas/faturamento" element={<AdminFaturamentoPage />} />
-          <Route path="/admin/metricas/salas" element={<AdminMetrics variant="salas" />} />
-          <Route path="/admin/metricas/equipamentos" element={<AdminMetrics variant="equipamentos" />} />
+          <Route path="/admin/metricas/salas" element={<AdminMetricasSalasPage />} />
+          <Route path="/admin/metricas/equipamentos" element={<AdminMetricasEquipamentosPage />} />
           <Route path="/admin/metricas/servicos" element={<AdminMetricasServicosPage />} />
           <Route path="/admin/metricas/profissionais" element={<AdminMetricasProfissionaisPage />} />
           <Route path="/admin/metricas/movimento" element={<AdminMovimentoPage />} />

@@ -64,7 +64,7 @@ export function InternalLayout({ links, title }: { links: SidebarLink[]; title: 
 
   return (
     <div className="min-h-screen bg-bg-base text-brown-dark lg:grid lg:grid-cols-[280px_1fr]">
-      <aside className="sticky top-0 hidden h-screen flex-col border-r border-brown-mid/15 bg-surface p-4 lg:flex">{SidebarContent}</aside>
+      <aside className="sticky top-0 hidden h-screen flex-col overflow-y-auto border-r border-brown-mid/15 bg-surface p-4 lg:flex">{SidebarContent}</aside>
       <div className="min-w-0">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-brown-mid/15 bg-bg-base/95 px-4 py-3 backdrop-blur lg:hidden">
           <button className="rounded-lg p-2 hover:bg-bg-secondary" aria-label="Abrir menu" onClick={() => setOpen(true)}>
@@ -75,7 +75,7 @@ export function InternalLayout({ links, title }: { links: SidebarLink[]; title: 
         </header>
         {open ? (
           <div className="fixed inset-0 z-50 bg-brown-dark/40 lg:hidden" onClick={() => setOpen(false)}>
-            <aside className="flex h-full w-[min(86vw,320px)] flex-col bg-surface p-4" onClick={(event) => event.stopPropagation()}>
+            <aside className="flex h-full w-[min(86vw,320px)] flex-col overflow-y-auto bg-surface p-4" onClick={(event) => event.stopPropagation()}>
               {SidebarContent}
             </aside>
           </div>
